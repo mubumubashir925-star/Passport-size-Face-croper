@@ -22,6 +22,7 @@ public final class FaceCropPro {
     private final JButton robotToggle = new JButton("Start Robot");
     private boolean robotActive;
     private File robotOutput;
+    private final java.util.Set<String> robotSeen = new java.util.HashSet<String>();
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
@@ -198,8 +199,10 @@ public final class FaceCropPro {
         try {
             if (input.getCanonicalFile().equals(robotOutput.getCanonicalFile()))
                 throw new IllegalArgumentException("Input and output folders must differ");
+            robotSeen.clear();
             robot = new FolderRobot(input, photo -> SwingUtilities.invokeLater(() -> {
                 if (!robotActive) return;
+                if (!robotSeen.add(photo.getAbsolutePath())) return;
                 if (!files.contains(photo.getAbsolutePath())) files.addElement(photo.getAbsolutePath());
                 updateCount();
                 if (process.isEnabled()) runRobotBatch();
@@ -334,6 +337,11 @@ public final class FaceCropPro {
             protected void done() {
                 process.setEnabled(true);
                 cancel.setEnabled(false);
+                if (robotActive && output.equals(robotOutput)) {
+                    for (String donePath : selected) files.removeElement(donePath);
+                    updateCount();
+                    if (!files.isEmpty()) SwingUtilities.invokeLater(() -> runRobotBatch());
+                }
                 retry.setEnabled(!failedFiles.isEmpty());
                 try {
                     int[] result = get();
