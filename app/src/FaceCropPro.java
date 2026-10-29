@@ -12,6 +12,8 @@ public final class FaceCropPro {
     private final DefaultListModel<String> files = new DefaultListModel<String>();
     private final JLabel status = new JLabel("Ready — add photos to begin");
     private final JLabel count = new JLabel("0 images selected");
+    private final JLabel engineStatus = new JLabel("Engine: checking...");
+    private final JButton checkEngine = new JButton("Check Engine");
     private final JButton process = new JButton("Start Cropping");
     private final JButton cancel = new JButton("Cancel");
     private final JButton retry = new JButton("Retry Failed");
@@ -70,6 +72,8 @@ public final class FaceCropPro {
             manualCrops.clear();
             updateCount();
         });
+        checkEngine.addActionListener(e -> checkEngine());
+        toolbar.add(checkEngine);
         toolbar.add(add);
         toolbar.add(clear);
         toolbar.add(preview);
@@ -107,12 +111,54 @@ public final class FaceCropPro {
         root.add(center, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
-        footer.add(count, BorderLayout.NORTH);
+        JPanel footerTop = new JPanel(new BorderLayout());
+        footerTop.add(count, BorderLayout.WEST);
+        footerTop.add(engineStatus, BorderLayout.EAST);
+        footer.add(footerTop, BorderLayout.NORTH);
         progress.setStringPainted(true);
         footer.add(progress, BorderLayout.CENTER);
         footer.add(status, BorderLayout.SOUTH);
         root.add(footer, BorderLayout.SOUTH);
         frame.setContentPane(root);
+        SwingUtilities.invokeLater(() -> checkEngine());
+    }
+
+    private void checkEngine() {
+        checkEngine.setEnabled(false);
+        engineStatus.setText("Engine: checking...");
+        new SwingWorker<String, Void>() {
+            protected String doInBackground() {
+                File dll = new File("lib/opencv_java455.dll");
+                File face = new File("models/haarcascade_frontalface_alt2.xml");
+                File eyes = new File("models/haarcascade_eye.xml");
+                if (!dll.isFile()) return "Missing native library: " + dll.getAbsolutePath();
+                if (!face.isFile()) return "Missing face model: " + face.getAbsolutePath();
+                try {
+                    ensureOpenCvLoaded(dll);
+                    FaceCropEngine detector = new FaceCropEngine(face);
+                    Mat probe = Mat.zeros(160, 160, CvType.CV_8UC3);
+                    try { detector.detect(probe); } finally { probe.release(); }
+                    return eyes.isFile() ? "READY: OpenCV face detection operational"
+                        : "READY: face detection operational (eye model missing)";
+                } catch (Throwable error) {
+                    return "FAILED: " + error.getClass().getSimpleName() + ": " + error.getMessage();
+                }
+            }
+            protected void done() {
+                checkEngine.setEnabled(true);
+                try {
+                    String result = get();
+                    engineStatus.setText(result.startsWith("READY") ? "Engine: READY" : "Engine: ERROR");
+                    engineStatus.setToolTipText(result);
+                    status.setText(result);
+                    if (!result.startsWith("READY"))
+                        JOptionPane.showMessageDialog(frame, result, "Engine diagnostics", JOptionPane.ERROR_MESSAGE);
+                } catch (Exception error) {
+                    engineStatus.setText("Engine: ERROR");
+                    status.setText(error.toString());
+                }
+            }
+        }.execute();
     }
 
     private void chooseFiles() {
