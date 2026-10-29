@@ -10,7 +10,7 @@ import org.opencv.imgcodecs.Imgcodecs;
 public final class FaceCropPro {
     private final JFrame frame = new JFrame("Face Crop Pro");
     private final DefaultListModel<String> files = new DefaultListModel<String>();
-    private final JLabel status = new JLabel("Ready — processing engine not installed yet");
+    private final JLabel status = new JLabel("Ready — add photos to begin");
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
     private final JButton cancel = new JButton("Cancel");
@@ -33,7 +33,7 @@ public final class FaceCropPro {
 
     private FaceCropPro() {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.setMinimumSize(new Dimension(850, 540));
+        frame.setMinimumSize(new Dimension(900, 580));
         frame.setSize(1050, 680);
         frame.setLocationRelativeTo(null);
 
@@ -52,11 +52,13 @@ public final class FaceCropPro {
             sidebar.add(button);
         }
         JPanel left = new JPanel(new BorderLayout());
+        left.setPreferredSize(new Dimension(190, 0));
         left.add(sidebar, BorderLayout.NORTH);
         root.add(left, BorderLayout.WEST);
 
         JPanel center = new JPanel(new BorderLayout(8, 8));
-        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
+        toolbar.setBorder(BorderFactory.createTitledBorder("Photo processing"));
         JButton add = new JButton("Add Photos");
         JButton clear = new JButton("Clear");
         JButton preview = new JButton("Preview / Adjust");
@@ -98,7 +100,9 @@ public final class FaceCropPro {
             if (i == 1) { width.setValue(466); height.setValue(600); }
             if (i == 2) { width.setValue(600); height.setValue(600); }
         });
-        center.add(toolbar, BorderLayout.NORTH);
+        JPanel controls = new JPanel(new BorderLayout());
+        controls.add(toolbar, BorderLayout.CENTER);
+        center.add(controls, BorderLayout.NORTH);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
 
