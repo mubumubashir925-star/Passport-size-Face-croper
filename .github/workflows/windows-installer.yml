@@ -34,7 +34,8 @@ jobs:
           Expand-Archive jre.zip -DestinationPath jre-unpacked
           $javaw = Get-ChildItem jre-unpacked -Filter javaw.exe -Recurse | Select-Object -First 1
           if (!$javaw) { throw 'Bundled JRE missing javaw.exe' }
-          Copy-Item (Split-Path (Split-Path $javaw.FullName -Parent) -Parent)\* runtime -Recurse -Force
+          $jreRoot = Split-Path (Split-Path $javaw.FullName -Parent) -Parent
+          Copy-Item -Path (Join-Path $jreRoot '*') -Destination 'runtime' -Recurse -Force
           Invoke-WebRequest 'https://github.com/opencv/opencv/releases/download/4.5.5/opencv-4.5.5-vc14_vc15.exe' -OutFile opencv.exe
           7z x opencv.exe '-oopencv-unpacked' -y | Out-Null
           $dll = Get-ChildItem opencv-unpacked -Filter opencv_java455.dll -Recurse | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
