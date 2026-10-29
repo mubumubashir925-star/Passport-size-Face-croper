@@ -1,0 +1,25 @@
+@echo off
+cd /d "C:\FaceCropper\src\Crop multiple faces"
+
+echo Cleaning old files...
+del /Q "*.class" 2>nul
+
+echo Compiling...
+javac -cp "C:\FaceCropper\lib\opencv-455.jar;C:\FaceCropper\lib\flatlaf-3.5.jar" -encoding UTF-8 "Crop multiple faces.java"
+
+if %errorlevel% neq 0 (
+    echo.
+    echo Compilation FAILED!
+    pause
+    exit /b
+)
+
+echo.
+echo Starting Multi Passport Photo Extractor...
+echo.
+
+java -cp ".;C:\FaceCropper\lib\opencv-455.jar;C:\FaceCropper\lib\flatlaf-3.5.jar" -Djava.library.path="C:\FaceCropper\lib" "Crop multiple faces"
+
+echo.
+echo Done! Press any key to exit...
+pause >nul
