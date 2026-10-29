@@ -149,7 +149,7 @@ public final class FaceCropPro {
                                     throw new IllegalStateException("Output would overwrite the original image");
                                 if (destination.exists())
                                     throw new IllegalStateException("Output already exists: " + destinationName);
-                                cropped = FaceCropEngine.crop(image, faces.get(index), outputWidth, outputHeight);
+                                cropped = engine.cropAligned(image, faces.get(index), outputWidth, outputHeight);
                                 try {
                                     if (!Imgcodecs.imwrite(destination.getAbsolutePath(), cropped))
                                         throw new IllegalStateException("Save failed");
