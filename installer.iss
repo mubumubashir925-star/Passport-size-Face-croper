@@ -1,5 +1,5 @@
 ; Inno Setup 6 installer template. Build on Windows after running run-windows.bat.
-; Prerequisites: Java 8 runtime, OpenCV 4.5.5 x64 DLL and Haar XML models.
+; Self-contained x64 installer: requires staging runtime\\bin\\javaw.exe, DLL and XML models.
 #define AppName "Face Crop Pro"
 #define AppVersion "0.1.0"
 [Setup]
@@ -22,6 +22,8 @@ Source: "lib\opencv_java455.dll"; DestDir: "{app}\lib"
 Source: "models\haarcascade_frontalface_alt2.xml"; DestDir: "{app}\models"
 Source: "models\haarcascade_eye.xml"; DestDir: "{app}\models"
 Source: "launch.bat"; DestDir: "{app}"
+Source: "launch.vbs"; DestDir: "{app}"
+Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\Face Crop Pro"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"
 Name: "{autodesktop}\Face Crop Pro"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; Tasks: desktopicon
