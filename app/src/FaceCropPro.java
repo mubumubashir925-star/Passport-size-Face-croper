@@ -97,6 +97,14 @@ public final class FaceCropPro {
         }
     }
 
+    private static boolean openCvLoaded;
+    private static synchronized void ensureOpenCvLoaded(File dll) {
+        if (!openCvLoaded) {
+            System.load(dll.getAbsolutePath());
+            openCvLoaded = true;
+        }
+    }
+
     private void previewSelected() {
         String path = fileList.getSelectedValue();
         if (path == null) {
@@ -109,6 +117,28 @@ public final class FaceCropPro {
             int w = ((Number) width.getValue()).intValue();
             int h = ((Number) height.getValue()).intValue();
             java.awt.Rectangle suggested = CropPreviewDialog.defaultCrop(image, (double) w / h);
+            // Show the actual automatic crop suggestion when OpenCV is available.
+            try {
+                File dll = new File("lib/opencv_java455.dll");
+                File modelFile = new File("models/haarcascade_frontalface_alt2.xml");
+                if (dll.isFile() && modelFile.isFile()) {
+                    ensureOpenCvLoaded(dll);
+                    Mat source = Imgcodecs.imread(path);
+                    try {
+                        if (!source.empty()) {
+                            FaceCropEngine detector = new FaceCropEngine(modelFile);
+                            java.util.List<org.opencv.core.Rect> found = detector.detect(source);
+                            if (!found.isEmpty()) {
+                                org.opencv.core.Rect r = FaceCropEngine.cropRect(found.get(0),
+                                    source.cols(), source.rows(), (double) w / h);
+                                suggested = new java.awt.Rectangle(r.x, r.y, r.width, r.height);
+                            }
+                        }
+                    } finally { source.release(); }
+                }
+            } catch (Exception ignored) {
+                // Preview remains available even without OpenCV dependencies.
+            }
             org.opencv.core.Rect previous = manualCrops.get(path);
             if (previous != null) suggested = new java.awt.Rectangle(previous.x, previous.y, previous.width, previous.height);
             java.awt.Rectangle selected = CropPreviewDialog.edit(frame, new File(path), suggested, w, h);
@@ -152,7 +182,7 @@ public final class FaceCropPro {
             protected int[] doInBackground() {
                 int success = 0, failed = 0;
                 try {
-                    System.load(nativeDll.getAbsolutePath());
+                    ensureOpenCvLoaded(nativeDll);
                     FaceCropEngine engine = new FaceCropEngine(model);
                     if (!output.isDirectory() && !output.mkdirs())
                         throw new IllegalStateException("Cannot create output folder");
