@@ -14,6 +14,7 @@ public final class FaceCropPro {
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
     private final JList<String> fileList = new JList<String>(files);
+    private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
     private final JComboBox<String> preset = new JComboBox<String>(new String[]{"413 x 531", "466 x 600", "600 x 600", "Custom"});
     private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
@@ -53,6 +54,7 @@ public final class FaceCropPro {
         add.addActionListener((ActionEvent e) -> chooseFiles());
         clear.addActionListener((ActionEvent e) -> {
             files.clear();
+            manualCrops.clear();
             updateCount();
         });
         toolbar.add(add);
@@ -107,9 +109,12 @@ public final class FaceCropPro {
             int w = ((Number) width.getValue()).intValue();
             int h = ((Number) height.getValue()).intValue();
             java.awt.Rectangle suggested = CropPreviewDialog.defaultCrop(image, (double) w / h);
+            org.opencv.core.Rect previous = manualCrops.get(path);
+            if (previous != null) suggested = new java.awt.Rectangle(previous.x, previous.y, previous.width, previous.height);
             java.awt.Rectangle selected = CropPreviewDialog.edit(frame, new File(path), suggested, w, h);
             if (selected != null) {
-                status.setText("Crop selected for " + new File(path).getName() + " (save integration pending)");
+                manualCrops.put(path, new org.opencv.core.Rect(selected.x, selected.y, selected.width, selected.height));
+                status.setText("Manual crop saved for " + new File(path).getName());
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.getMessage(), "Preview error", JOptionPane.ERROR_MESSAGE);
@@ -127,6 +132,7 @@ public final class FaceCropPro {
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
         final File output = chooser.getSelectedFile();
         final boolean extractAll = multipleFaces.isSelected();
+        final java.util.Map<String, org.opencv.core.Rect> overrides = new java.util.HashMap<String, org.opencv.core.Rect>(manualCrops);
         final int outputWidth = ((Number)width.getValue()).intValue();
         final int outputHeight = ((Number)height.getValue()).intValue();
         final File model = new File("models/haarcascade_frontalface_alt2.xml");
@@ -156,7 +162,8 @@ public final class FaceCropPro {
                         try {
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
-                            List<Rect> faces = engine.detect(image);
+                            List<Rect> faces = (!extractAll && overrides.containsKey(name))
+                                ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image);
                             if (faces.isEmpty()) throw new IllegalArgumentException("No face detected");
                             File original = new File(name);
                             String originalName = original.getName();
@@ -173,7 +180,19 @@ public final class FaceCropPro {
                                     throw new IllegalStateException("Output would overwrite the original image");
                                 if (destination.exists())
                                     throw new IllegalStateException("Output already exists: " + destinationName);
-                                cropped = engine.cropAligned(image, faces.get(index), outputWidth, outputHeight);
+                                if (!extractAll && overrides.containsKey(name)) {
+                                    org.opencv.core.Rect r = overrides.get(name);
+                                    if (r.x < 0 || r.y < 0 || r.width <= 0 || r.height <= 0 ||
+                                        r.x + r.width > image.cols() || r.y + r.height > image.rows())
+                                        throw new IllegalArgumentException("Manual crop is outside image bounds");
+                                    Mat roi = new Mat(image, r);
+                                    cropped = new Mat();
+                                    try {
+                                        org.opencv.imgproc.Imgproc.resize(roi, cropped, new Size(outputWidth, outputHeight));
+                                    } finally { roi.release(); }
+                                } else {
+                                    cropped = engine.cropAligned(image, faces.get(index), outputWidth, outputHeight);
+                                }
                                 try {
                                     if (!Imgcodecs.imwrite(destination.getAbsolutePath(), cropped))
                                         throw new IllegalStateException("Save failed");
