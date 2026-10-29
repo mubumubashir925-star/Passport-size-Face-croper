@@ -6,6 +6,8 @@
 AppId={{7C2D96E8-9E54-4A8B-90A0-53125D7C9C12}
 AppName={#AppName}
 AppVersion={#AppVersion}
+; Windows 7 RTM (6.1.7600) without SP1. Override newer Inno Setup defaults.
+MinVersion=6.1
 DefaultDirName={autopf}\Face Crop Pro
 DefaultGroupName=Face Crop Pro
 OutputDir=installer-output
