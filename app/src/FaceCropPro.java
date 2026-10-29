@@ -13,6 +13,7 @@ public final class FaceCropPro {
     private final JLabel status = new JLabel("Ready — processing engine not installed yet");
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
+    private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
 
     private FaceCropPro() {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -51,6 +52,7 @@ public final class FaceCropPro {
         toolbar.add(add);
         toolbar.add(clear);
         toolbar.add(process);
+        toolbar.add(multipleFaces);
         center.add(toolbar, BorderLayout.NORTH);
         JList<String> fileList = new JList<String>(files);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
@@ -86,6 +88,7 @@ public final class FaceCropPro {
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
         final File output = chooser.getSelectedFile();
+        final boolean extractAll = multipleFaces.isSelected();
         final File model = new File("models/haarcascade_frontalface_alt2.xml");
         final File nativeDll = new File("lib/opencv_java455.dll");
         if (!model.isFile() || !nativeDll.isFile()) {
@@ -115,13 +118,32 @@ public final class FaceCropPro {
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
                             List<Rect> faces = engine.detect(image);
                             if (faces.isEmpty()) throw new IllegalArgumentException("No face detected");
-                            cropped = FaceCropEngine.crop(image, faces.get(0), 413, 531);
-                            String base = new File(name).getName().replaceFirst("(?i)\\\\.[^.]+$", "");
-                            File destination = new File(output, base + "_passport.jpg");
-                            if (!Imgcodecs.imwrite(destination.getAbsolutePath(), cropped))
-                                throw new IllegalStateException("Save failed");
+                            File original = new File(name);
+                            String originalName = original.getName();
+                            String base = originalName.replaceFirst("(?i)\\.[^.]+$", "");
+                            int faceCount = extractAll ? faces.size() : 1;
+                            for (int index = 0; index < faceCount; index++) {
+                                // Preserve the exact original filename for single-face output.
+                                // Multi-face images require numbered names to avoid collisions.
+                                String destinationName = extractAll
+                                    ? base + "_face_" + (index + 1) + ".jpg"
+                                    : originalName;
+                                File destination = new File(output, destinationName);
+                                if (destination.getCanonicalPath().equals(original.getCanonicalPath()))
+                                    throw new IllegalStateException("Output would overwrite the original image");
+                                if (destination.exists())
+                                    throw new IllegalStateException("Output already exists: " + destinationName);
+                                cropped = FaceCropEngine.crop(image, faces.get(index), 413, 531);
+                                try {
+                                    if (!Imgcodecs.imwrite(destination.getAbsolutePath(), cropped))
+                                        throw new IllegalStateException("Save failed");
+                                } finally {
+                                    cropped.release();
+                                    cropped = null;
+                                }
+                                publish("Saved " + destinationName);
+                            }
                             success++;
-                            publish("Saved " + destination.getName());
                         } catch (Exception ex) {
                             failed++;
                             publish("Skipped " + new File(name).getName() + ": " + ex.getMessage());
