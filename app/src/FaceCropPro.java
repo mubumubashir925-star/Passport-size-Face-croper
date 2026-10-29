@@ -14,6 +14,9 @@ public final class FaceCropPro {
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
+    private final JComboBox<String> preset = new JComboBox<String>(new String[]{"413 x 531", "466 x 600", "600 x 600", "Custom"});
+    private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
+    private final JSpinner height = new JSpinner(new SpinnerNumberModel(531, 100, 6000, 1));
 
     private FaceCropPro() {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -29,7 +32,7 @@ public final class FaceCropPro {
 
         JPanel sidebar = new JPanel(new GridLayout(0, 1, 0, 8));
         sidebar.setPreferredSize(new Dimension(190, 0));
-        for (String section : new String[]{"Batch Crop", "Multiple Faces", "Background Removal", "Robot Mode", "Presets"}) {
+        for (String section : new String[]{"Batch Crop", "Multiple Faces", "Robot Mode", "Presets"}) {
             JButton button = new JButton(section);
             button.addActionListener((ActionEvent e) ->
                 status.setText(section + " — coming in a later development phase"));
@@ -53,6 +56,17 @@ public final class FaceCropPro {
         toolbar.add(clear);
         toolbar.add(process);
         toolbar.add(multipleFaces);
+        toolbar.add(new JLabel("Size:"));
+        toolbar.add(preset);
+        toolbar.add(width);
+        toolbar.add(new JLabel("x"));
+        toolbar.add(height);
+        preset.addActionListener((ActionEvent e) -> {
+            int i = preset.getSelectedIndex();
+            if (i == 0) { width.setValue(413); height.setValue(531); }
+            if (i == 1) { width.setValue(466); height.setValue(600); }
+            if (i == 2) { width.setValue(600); height.setValue(600); }
+        });
         center.add(toolbar, BorderLayout.NORTH);
         JList<String> fileList = new JList<String>(files);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
@@ -89,6 +103,8 @@ public final class FaceCropPro {
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
         final File output = chooser.getSelectedFile();
         final boolean extractAll = multipleFaces.isSelected();
+        final int outputWidth = ((Number)width.getValue()).intValue();
+        final int outputHeight = ((Number)height.getValue()).intValue();
         final File model = new File("models/haarcascade_frontalface_alt2.xml");
         final File nativeDll = new File("lib/opencv_java455.dll");
         if (!model.isFile() || !nativeDll.isFile()) {
@@ -133,7 +149,7 @@ public final class FaceCropPro {
                                     throw new IllegalStateException("Output would overwrite the original image");
                                 if (destination.exists())
                                     throw new IllegalStateException("Output already exists: " + destinationName);
-                                cropped = FaceCropEngine.crop(image, faces.get(index), 413, 531);
+                                cropped = FaceCropEngine.crop(image, faces.get(index), outputWidth, outputHeight);
                                 try {
                                     if (!Imgcodecs.imwrite(destination.getAbsolutePath(), cropped))
                                         throw new IllegalStateException("Save failed");
