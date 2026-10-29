@@ -13,6 +13,7 @@ public final class FaceCropPro {
     private final JLabel status = new JLabel("Ready — processing engine not installed yet");
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
+    private final JList<String> fileList = new JList<String>(files);
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
     private final JComboBox<String> preset = new JComboBox<String>(new String[]{"413 x 531", "466 x 600", "600 x 600", "Custom"});
     private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
@@ -46,6 +47,8 @@ public final class FaceCropPro {
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT));
         JButton add = new JButton("Add Photos");
         JButton clear = new JButton("Clear");
+        JButton preview = new JButton("Preview / Adjust");
+        preview.addActionListener(e -> previewSelected());
         process.addActionListener((ActionEvent e) -> startCropping());
         add.addActionListener((ActionEvent e) -> chooseFiles());
         clear.addActionListener((ActionEvent e) -> {
@@ -54,6 +57,7 @@ public final class FaceCropPro {
         });
         toolbar.add(add);
         toolbar.add(clear);
+        toolbar.add(preview);
         toolbar.add(process);
         toolbar.add(multipleFaces);
         toolbar.add(new JLabel("Size:"));
@@ -68,7 +72,6 @@ public final class FaceCropPro {
             if (i == 2) { width.setValue(600); height.setValue(600); }
         });
         center.add(toolbar, BorderLayout.NORTH);
-        JList<String> fileList = new JList<String>(files);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
 
@@ -89,6 +92,27 @@ public final class FaceCropPro {
                 if (!files.contains(f.getAbsolutePath())) files.addElement(f.getAbsolutePath());
             }
             updateCount();
+        }
+    }
+
+    private void previewSelected() {
+        String path = fileList.getSelectedValue();
+        if (path == null) {
+            JOptionPane.showMessageDialog(frame, "Select a photo first.");
+            return;
+        }
+        try {
+            java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new File(path));
+            if (image == null) throw new java.io.IOException("Unsupported image");
+            int w = ((Number) width.getValue()).intValue();
+            int h = ((Number) height.getValue()).intValue();
+            java.awt.Rectangle suggested = CropPreviewDialog.defaultCrop(image, (double) w / h);
+            java.awt.Rectangle selected = CropPreviewDialog.edit(frame, new File(path), suggested, w, h);
+            if (selected != null) {
+                status.setText("Crop selected for " + new File(path).getName() + " (save integration pending)");
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, ex.getMessage(), "Preview error", JOptionPane.ERROR_MESSAGE);
         }
     }
 
