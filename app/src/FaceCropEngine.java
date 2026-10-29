@@ -21,9 +21,10 @@ public final class FaceCropEngine {
         Mat gray = new Mat();
         MatOfRect found = new MatOfRect();
         try {
-            Imgproc.cvtColor(source, gray, source.channels() == 4 ? Imgproc.COLOR_BGRA2GRAY :
-                    source.channels() == 3 ? Imgproc.COLOR_BGR2GRAY : Imgproc.COLOR_GRAY2BGR);
             if (source.channels() == 1) source.copyTo(gray);
+            else if (source.channels() == 3) Imgproc.cvtColor(source, gray, Imgproc.COLOR_BGR2GRAY);
+            else if (source.channels() == 4) Imgproc.cvtColor(source, gray, Imgproc.COLOR_BGRA2GRAY);
+            else throw new IllegalArgumentException("Unsupported channel count");
             Imgproc.equalizeHist(gray, gray);
             detector.detectMultiScale(gray, found, 1.08, 4, 0, new Size(35, 35), new Size());
             List<Rect> result = new ArrayList<Rect>();
