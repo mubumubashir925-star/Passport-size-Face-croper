@@ -17,6 +17,11 @@ public final class FaceCropPro {
     private final JButton retry = new JButton("Retry Failed");
     private final JProgressBar progress = new JProgressBar(0, 100);
     private volatile boolean stopRequested;
+    private FolderRobot robot;
+    private Thread robotThread;
+    private final JButton robotToggle = new JButton("Start Robot");
+    private boolean robotActive;
+    private File robotOutput;
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
@@ -39,7 +44,7 @@ public final class FaceCropPro {
 
         JPanel sidebar = new JPanel(new GridLayout(0, 1, 0, 8));
         sidebar.setPreferredSize(new Dimension(190, 0));
-        for (String section : new String[]{"Batch Crop", "Multiple Faces", "Robot Mode", "Presets"}) {
+        for (String section : new String[]{"Batch Crop", "Multiple Faces", "Presets"}) {
             JButton button = new JButton(section);
             button.addActionListener((ActionEvent e) ->
                 status.setText(section + " — coming in a later development phase"));
@@ -78,6 +83,8 @@ public final class FaceCropPro {
         });
         toolbar.add(cancel);
         toolbar.add(retry);
+        robotToggle.addActionListener(e -> toggleRobot());
+        toolbar.add(robotToggle);
         toolbar.add(multipleFaces);
         toolbar.add(new JLabel("Size:"));
         toolbar.add(preset);
@@ -170,6 +177,48 @@ public final class FaceCropPro {
         }
     }
 
+    private void toggleRobot() {
+        if (robotActive) {
+            robot.stop();
+            robotActive = false;
+            robotToggle.setText("Start Robot");
+            status.setText("Robot stopped");
+            return;
+        }
+        JFileChooser inputChooser = new JFileChooser();
+        inputChooser.setDialogTitle("Select folder to watch");
+        inputChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (inputChooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+        File input = inputChooser.getSelectedFile();
+        JFileChooser outputChooser = new JFileChooser();
+        outputChooser.setDialogTitle("Select robot output folder");
+        outputChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        if (outputChooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return;
+        robotOutput = outputChooser.getSelectedFile();
+        try {
+            if (input.getCanonicalFile().equals(robotOutput.getCanonicalFile()))
+                throw new IllegalArgumentException("Input and output folders must differ");
+            robot = new FolderRobot(input, photo -> SwingUtilities.invokeLater(() -> {
+                if (!robotActive) return;
+                if (!files.contains(photo.getAbsolutePath())) files.addElement(photo.getAbsolutePath());
+                updateCount();
+                if (process.isEnabled()) runRobotBatch();
+            }));
+            robotActive = true;
+            robotThread = new Thread(robot, "FaceCropRobot");
+            robotThread.setDaemon(true);
+            robotThread.start();
+            robotToggle.setText("Stop Robot");
+            status.setText("Robot watching: " + input.getAbsolutePath());
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, ex.getMessage(), "Robot error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void runRobotBatch() {
+        if (robotOutput != null && !files.isEmpty()) startCroppingTo(robotOutput);
+    }
+
     private void startCropping() {
         if (files.isEmpty()) {
             JOptionPane.showMessageDialog(frame, "Add photos first.");
@@ -179,7 +228,11 @@ public final class FaceCropPro {
         chooser.setDialogTitle("Choose output folder");
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
-        final File output = chooser.getSelectedFile();
+        startCroppingTo(chooser.getSelectedFile());
+    }
+
+    private void startCroppingTo(final File output) {
+
         final boolean extractAll = multipleFaces.isSelected();
         final java.util.Map<String, org.opencv.core.Rect> overrides = new java.util.HashMap<String, org.opencv.core.Rect>(manualCrops);
         final int outputWidth = ((Number)width.getValue()).intValue();
