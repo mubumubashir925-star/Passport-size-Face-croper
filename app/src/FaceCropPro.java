@@ -13,6 +13,11 @@ public final class FaceCropPro {
     private final JLabel status = new JLabel("Ready — processing engine not installed yet");
     private final JLabel count = new JLabel("0 images selected");
     private final JButton process = new JButton("Start Cropping");
+    private final JButton cancel = new JButton("Cancel");
+    private final JButton retry = new JButton("Retry Failed");
+    private final JProgressBar progress = new JProgressBar(0, 100);
+    private volatile boolean stopRequested;
+    private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
@@ -61,6 +66,18 @@ public final class FaceCropPro {
         toolbar.add(clear);
         toolbar.add(preview);
         toolbar.add(process);
+        cancel.setEnabled(false);
+        retry.setEnabled(false);
+        cancel.addActionListener(e -> { stopRequested = true; status.setText("Stopping after current photo..."); });
+        retry.addActionListener(e -> {
+            java.util.List<String> copy = new java.util.ArrayList<String>(failedFiles);
+            files.clear();
+            for (String item : copy) files.addElement(item);
+            updateCount();
+            startCropping();
+        });
+        toolbar.add(cancel);
+        toolbar.add(retry);
         toolbar.add(multipleFaces);
         toolbar.add(new JLabel("Size:"));
         toolbar.add(preset);
@@ -79,6 +96,8 @@ public final class FaceCropPro {
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
         footer.add(count, BorderLayout.NORTH);
+        progress.setStringPainted(true);
+        footer.add(progress, BorderLayout.CENTER);
         footer.add(status, BorderLayout.SOUTH);
         root.add(footer, BorderLayout.SOUTH);
         frame.setContentPane(root);
@@ -176,17 +195,23 @@ public final class FaceCropPro {
             return;
         }
         process.setEnabled(false);
+        cancel.setEnabled(true);
+        retry.setEnabled(false);
+        stopRequested = false;
+        failedFiles.clear();
+        progress.setValue(0);
         final java.util.List<String> selected = new java.util.ArrayList<String>();
         for (int i = 0; i < files.size(); i++) selected.add(files.get(i));
-        new SwingWorker<int[], String>() {
+        SwingWorker<int[], String> worker = new SwingWorker<int[], String>() {
             protected int[] doInBackground() {
-                int success = 0, failed = 0;
+                int success = 0, failed = 0, completed = 0;
                 try {
                     ensureOpenCvLoaded(nativeDll);
                     FaceCropEngine engine = new FaceCropEngine(model);
                     if (!output.isDirectory() && !output.mkdirs())
                         throw new IllegalStateException("Cannot create output folder");
                     for (String name : selected) {
+                        if (stopRequested) break;
                         Mat image = new Mat();
                         Mat cropped = null;
                         try {
@@ -235,10 +260,13 @@ public final class FaceCropPro {
                             success++;
                         } catch (Exception ex) {
                             failed++;
+                            synchronized (failedFiles) { failedFiles.add(name); }
                             publish("Skipped " + new File(name).getName() + ": " + ex.getMessage());
                         } finally {
                             image.release();
                             if (cropped != null) cropped.release();
+                            completed++;
+                            setProgress((int)(100.0 * completed / selected.size()));
                         }
                     }
                 } catch (Throwable ex) {
@@ -252,6 +280,8 @@ public final class FaceCropPro {
             }
             protected void done() {
                 process.setEnabled(true);
+                cancel.setEnabled(false);
+                retry.setEnabled(!failedFiles.isEmpty());
                 try {
                     int[] result = get();
                     JOptionPane.showMessageDialog(frame,
@@ -260,7 +290,11 @@ public final class FaceCropPro {
                     JOptionPane.showMessageDialog(frame, ex.getMessage());
                 }
             }
-        }.execute();
+        };
+        worker.addPropertyChangeListener(e -> {
+            if ("progress".equals(e.getPropertyName())) progress.setValue((Integer)e.getNewValue());
+        });
+        worker.execute();
     }
 
     private void updateCount() {
