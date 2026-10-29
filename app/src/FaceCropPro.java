@@ -314,6 +314,7 @@ public final class FaceCropPro {
                 try {
                     ensureOpenCvLoaded(nativeDll);
                     FaceCropEngine engine = new FaceCropEngine(model);
+                    publish("OpenCV engine loaded — detecting faces...");
                     if (!output.isDirectory() && !output.mkdirs())
                         throw new IllegalStateException("Cannot create output folder");
                     for (String name : selected) {
@@ -376,7 +377,7 @@ public final class FaceCropPro {
                         }
                     }
                 } catch (Throwable ex) {
-                    publish("Processing stopped: " + ex.getMessage());
+                    publish("Processing stopped: " + ex.getClass().getSimpleName() + ": " + ex.getMessage());
                     failed += selected.size() - success - failed;
                 }
                 return new int[]{success, failed};
@@ -396,7 +397,8 @@ public final class FaceCropPro {
                 try {
                     int[] result = get();
                     JOptionPane.showMessageDialog(frame,
-                        "Saved: " + result[0] + "\\nFailed: " + result[1]);
+                        "Saved: " + result[0] + "\\nFailed: " + result[1] +
+                        "\\nEngine status: " + status.getText());
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(frame, ex.getMessage());
                 }
