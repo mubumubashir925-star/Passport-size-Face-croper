@@ -96,11 +96,11 @@ public final class FaceCropEngine {
             throw new IllegalArgumentException("Invalid crop inputs");
         // Keep head near the upper third while avoiding oversized margins.
         double centerX = face.x + face.width * 0.5;
-        double desiredTop = face.y - face.height * 0.85;
-        double desiredHeight = face.height * 3.05;
+        double desiredTop = face.y - face.height * 0.48;
+        double desiredHeight = face.height * 2.30;
         double desiredWidth = desiredHeight * ratio;
-        if (desiredWidth < face.width * 1.55) {
-            desiredWidth = face.width * 1.40;
+        if (desiredWidth < face.width * 1.45) {
+            desiredWidth = face.width * 1.45;
             desiredHeight = desiredWidth / ratio;
         }
         // Fit a ratio-preserving rectangle inside the source without stretching faces.
@@ -115,7 +115,7 @@ public final class FaceCropEngine {
         int ix = (int)Math.round(Math.max(0, Math.min(imageW - iw, centerX - iw / 2.0)));
         int iy = (int)Math.round(Math.max(0, Math.min(imageH - ih, desiredTop)));
         // If the detected face is close to the top edge, prioritize keeping the scalp.
-        if (face.y < face.height * 0.35) iy = 0;
+        if (face.y < face.height * 0.48) iy = 0;
         return new Rect(ix, iy, iw, ih);
     }
     public static Mat crop(Mat image, Rect face, int outW, int outH) {
