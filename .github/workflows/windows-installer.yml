@@ -43,6 +43,7 @@ jobs:
           $iss = $iss -replace '#define AppVersion "[^"]+"', ('#define AppVersion "' + $v + '"')
           [System.IO.File]::WriteAllText((Join-Path $PWD 'installer.iss'), $iss, (New-Object System.Text.UTF8Encoding($false)))
       - name: Compile Java 8 app
+        shell: cmd
         run: |
           if not exist build mkdir build
           javac -source 8 -target 8 -encoding UTF-8 -cp "lib\opencv-455.jar;lib\flatlaf-3.5.jar" -d build app\src\*.java
