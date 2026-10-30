@@ -70,19 +70,6 @@ public final class FaceCropPro {
         header.add(updates, BorderLayout.EAST);
         root.add(header, BorderLayout.NORTH);
 
-        JPanel sidebar = new JPanel(new GridLayout(0, 1, 0, 8));
-        sidebar.setPreferredSize(new Dimension(190, 0));
-        for (String section : new String[]{"Batch Crop", "Multiple Faces", "Presets"}) {
-            JButton button = new JButton(section);
-            button.addActionListener((ActionEvent e) ->
-                status.setText(section + " — coming in a later development phase"));
-            sidebar.add(button);
-        }
-        JPanel left = new JPanel(new BorderLayout());
-        left.setPreferredSize(new Dimension(190, 0));
-        left.add(sidebar, BorderLayout.NORTH);
-        root.add(left, BorderLayout.WEST);
-
         JPanel center = new JPanel(new BorderLayout(8, 8));
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         toolbar.setBorder(BorderFactory.createTitledBorder("Photo processing"));
@@ -198,21 +185,20 @@ public final class FaceCropPro {
         });
         JPanel gallery = new JPanel(new BorderLayout());
         JPanel galleryBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton selectAll = new JButton("Select All");
-        selectAll.addActionListener(e -> {
-            if (!files.isEmpty()) fileList.setSelectionInterval(0, files.size() - 1);
-        });
-        JButton removeSelected = new JButton("Remove Selected");
-        removeSelected.addActionListener(e -> {
-            for (String path : fileList.getSelectedValuesList()) {
-                files.removeElement(path);
-                manualCrops.remove(path);
+        galleryBar.add(new JLabel("Photo Gallery  ·  Ctrl+A: select all  ·  Delete: remove from list"));
+        fileList.getInputMap(JComponent.WHEN_FOCUSED).put(
+            KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_DELETE, 0), "removeSelectedImages");
+        fileList.getActionMap().put("removeSelectedImages", new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent e) {
+                java.util.List<String> selected = new java.util.ArrayList<String>(fileList.getSelectedValuesList());
+                for (String path : selected) {
+                    files.removeElement(path);
+                    manualCrops.remove(path);
+                }
+                updateCount();
+                status.setText("Removed " + selected.size() + " image(s) from list; original files are safe.");
             }
-            updateCount();
         });
-        galleryBar.add(new JLabel("Photo Gallery"));
-        galleryBar.add(selectAll);
-        galleryBar.add(removeSelected);
         gallery.add(galleryBar, BorderLayout.NORTH);
         gallery.add(new JScrollPane(fileList), BorderLayout.CENTER);
         JPanel outputPanel = new JPanel(new BorderLayout(6, 6));
