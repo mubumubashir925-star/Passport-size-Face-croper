@@ -514,6 +514,7 @@ public final class FaceCropPro {
                     File folder = get();
                     if (folder != null && folder.isDirectory()) {
                         outputPath.setText(folder.getAbsolutePath());
+                        refreshSelectedOutput();
                         status.setText("Output folder selected: " + folder.getAbsolutePath());
                     } else status.setText("Output folder selection cancelled");
                 } catch (Exception ex) {
@@ -668,6 +669,7 @@ public final class FaceCropPro {
                     if (!files.isEmpty()) SwingUtilities.invokeLater(() -> runRobotBatch());
                 }
                 retry.setEnabled(!failedFiles.isEmpty());
+                refreshSelectedOutput();
                 try {
                     int[] result = get();
                     JOptionPane.showMessageDialog(frame,
