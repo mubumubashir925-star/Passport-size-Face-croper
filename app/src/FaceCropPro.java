@@ -31,7 +31,11 @@ public final class FaceCropPro {
     private final JList<String> fileList = new JList<String>(files);
     private final java.util.Map<String, ImageIcon> thumbnails = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
     private final java.util.Set<String> thumbnailJobs = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
-    private final java.util.concurrent.ExecutorService thumbnailPool = java.util.concurrent.Executors.newFixedThreadPool(2);
+    private final java.util.concurrent.ExecutorService thumbnailPool = java.util.concurrent.Executors.newFixedThreadPool(2, task -> {
+        Thread worker = new Thread(task, "FaceCropThumbnail");
+        worker.setDaemon(true);
+        return worker;
+    });
 
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
     private final JCheckBox trimBorders = new JCheckBox("Remove scan borders", true);
