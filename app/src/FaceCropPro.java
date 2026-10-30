@@ -209,7 +209,23 @@ public final class FaceCropPro {
         galleryBar.add(removeSelected);
         gallery.add(galleryBar, BorderLayout.NORTH);
         gallery.add(new JScrollPane(fileList), BorderLayout.CENTER);
-        center.add(gallery, BorderLayout.CENTER);
+        JPanel outputPanel = new JPanel(new BorderLayout(6, 6));
+        outputPanel.setBorder(BorderFactory.createTitledBorder("Output Preview"));
+        outputPanel.add(new JScrollPane(outputPreview), BorderLayout.CENTER);
+        JPanel outputButtons = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton refreshOutput = new JButton("Refresh Output");
+        refreshOutput.addActionListener(e -> refreshSelectedOutput());
+        editOutput.addActionListener(e -> editSelectedOutput());
+        outputButtons.add(refreshOutput);
+        outputButtons.add(editOutput);
+        outputPanel.add(outputButtons, BorderLayout.SOUTH);
+        fileList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) refreshSelectedOutput();
+        });
+        gallery.setBorder(BorderFactory.createTitledBorder("Input Images"));
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gallery, outputPanel);
+        split.setResizeWeight(0.52);
+        center.add(split, BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
