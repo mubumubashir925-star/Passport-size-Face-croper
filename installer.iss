@@ -25,6 +25,7 @@ Source: "models\haarcascade_frontalface_alt2.xml"; DestDir: "{app}\models"
 Source: "models\haarcascade_eye.xml"; DestDir: "{app}\models"
 Source: "launch.bat"; DestDir: "{app}"
 Source: "launch.vbs"; DestDir: "{app}"
+Source: "native-folder-picker.ps1"; DestDir: "{app}"
 Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\Face Crop Pro"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"
