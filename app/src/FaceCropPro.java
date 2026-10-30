@@ -239,7 +239,7 @@ public final class FaceCropPro {
                     inputPath.setText(folder.getAbsolutePath());
                     status.setText("Scanning images in " + folder.getAbsolutePath() + "...");
                     new javax.swing.SwingWorker<java.util.List<String>, Void>() {
-                        protected java.util.List<String> doInBackground() {
+                        protected java.util.List<String> doInBackground() throws Exception {
                             java.util.List<String> found = new java.util.ArrayList<String>();
                             java.nio.file.Files.walkFileTree(folder.toPath(),
                                 new java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
