@@ -67,22 +67,32 @@ public final class FolderPathDialog {
     private static File nativeFolder(Component parent, String title) {
         if (!System.getProperty("os.name", "").toLowerCase().contains("windows")) return null;
         File script = new File("native-folder-picker.ps1");
-        if (!script.isFile()) return null;
+        if (!script.isFile()) {
+            JOptionPane.showMessageDialog(parent, "Windows folder picker helper is missing: " + script.getAbsolutePath(),
+                "Folder picker unavailable", JOptionPane.ERROR_MESSAGE);
+            return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
+        }
         try {
             Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA",
                 "-ExecutionPolicy", "Bypass", "-File", script.getAbsolutePath())
                 .redirectErrorStream(true).start();
             String selected = null;
+            StringBuilder diagnostics = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
-                while ((line = reader.readLine()) != null)
+                while ((line = reader.readLine()) != null) {
                     if (new File(line.trim()).isDirectory()) selected = line.trim();
+                    else diagnostics.append(line).append("\\n");
+                }
             }
             if (process.waitFor() == 0) return selected == null ? new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE") : new File(selected);
-        } catch (Exception ignored) {
-            // Fall back to the Java directory chooser when PowerShell is unavailable.
+            JOptionPane.showMessageDialog(parent, "Native Windows picker failed:\\n" + diagnostics.toString(),
+                "Folder picker error", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception error) {
+            JOptionPane.showMessageDialog(parent, "Native Windows picker failed: " + error.toString(),
+                "Folder picker error", JOptionPane.ERROR_MESSAGE);
         }
-        return null;
+        return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
     }
 
     private static File parse(String raw) {
