@@ -388,12 +388,15 @@ public final class FaceCropPro {
     }
 
     private void previewSelected() {
+        int currentIndex = fileList.getSelectedIndex();
         String path = fileList.getSelectedValue();
         if (path == null) {
             JOptionPane.showMessageDialog(frame, "Select a photo first.");
             return;
         }
-        try {
+        while (currentIndex >= 0 && currentIndex < files.size()) {
+          path = files.get(currentIndex);
+          try {
             java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(new File(path));
             if (image == null) throw new java.io.IOException("Unsupported image");
             int w = ((Number) width.getValue()).intValue();
@@ -423,13 +426,20 @@ public final class FaceCropPro {
             }
             org.opencv.core.Rect previous = manualCrops.get(path);
             if (previous != null) suggested = new java.awt.Rectangle(previous.x, previous.y, previous.width, previous.height);
-            java.awt.Rectangle selected = CropPreviewDialog.edit(frame, new File(path), suggested, w, h);
+            CropPreviewDialog.PreviewResult preview = CropPreviewDialog.editNavigable(frame, new File(path), suggested, w, h);
+            java.awt.Rectangle selected = preview.crop;
             if (selected != null) {
                 manualCrops.put(path, new org.opencv.core.Rect(selected.x, selected.y, selected.width, selected.height));
                 status.setText("Manual crop saved for " + new File(path).getName());
             }
+        if (preview.direction == 0) break;
+        currentIndex = Math.max(0, Math.min(files.size() - 1, currentIndex + preview.direction));
+        fileList.setSelectedIndex(currentIndex);
+        fileList.ensureIndexIsVisible(currentIndex);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.getMessage(), "Preview error", JOptionPane.ERROR_MESSAGE);
+            break;
+        }
         }
     }
 
