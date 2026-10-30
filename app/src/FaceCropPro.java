@@ -29,6 +29,8 @@ public final class FaceCropPro {
     private final java.util.Set<String> robotSeen = new java.util.HashSet<String>();
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
+    private final JLabel outputPreview = new JLabel("Output preview", SwingConstants.CENTER);
+    private final JButton editOutput = new JButton("Adjust 4 Corners & Save");
     private final java.util.Map<String, ImageIcon> thumbnails = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
     private final java.util.Set<String> thumbnailJobs = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
     private final java.util.concurrent.ExecutorService thumbnailPool = java.util.concurrent.Executors.newFixedThreadPool(2, task -> {
