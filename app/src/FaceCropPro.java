@@ -93,13 +93,14 @@ public final class FaceCropPro {
         toolbar.add(retry);
         robotToggle.addActionListener(e -> toggleRobot());
         toolbar.add(robotToggle);
-        toolbar.add(multipleFaces);
-        toolbar.add(trimBorders);
-        toolbar.add(new JLabel("Size:"));
-        toolbar.add(preset);
-        toolbar.add(width);
-        toolbar.add(new JLabel("x"));
-        toolbar.add(height);
+        JPanel options = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
+        options.add(multipleFaces);
+        options.add(trimBorders);
+        options.add(new JLabel("Size:"));
+        options.add(preset);
+        options.add(width);
+        options.add(new JLabel("x"));
+        options.add(height);
         preset.addActionListener((ActionEvent e) -> {
             int i = preset.getSelectedIndex();
             if (i == 0) { width.setValue(413); height.setValue(531); }
@@ -107,7 +108,8 @@ public final class FaceCropPro {
             if (i == 2) { width.setValue(600); height.setValue(600); }
         });
         JPanel controls = new JPanel(new BorderLayout());
-        controls.add(toolbar, BorderLayout.CENTER);
+        controls.add(toolbar, BorderLayout.NORTH);
+        controls.add(options, BorderLayout.SOUTH);
         center.add(controls, BorderLayout.NORTH);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
