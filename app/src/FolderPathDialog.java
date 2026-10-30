@@ -10,7 +10,7 @@ public final class FolderPathDialog {
     private FolderPathDialog() {}
     public static File choose(Component parent, String title, File initial) {
         File nativeResult = nativeFolder(parent, title);
-        if (nativeResult != null) return nativeResult;
+        if (nativeResult != null) return nativeResult.isDirectory() ? nativeResult : null;
         JFileChooser chooser = new JFileChooser(FileSystemView.getFileSystemView());
         chooser.setDialogTitle(title);
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -69,7 +69,7 @@ public final class FolderPathDialog {
                 while ((line = reader.readLine()) != null)
                     if (new File(line.trim()).isDirectory()) selected = line.trim();
             }
-            if (process.waitFor() == 0 && selected != null) return new File(selected);
+            if (process.waitFor() == 0) return selected == null ? new File("") : new File(selected);
         } catch (Exception ignored) {
             // Fall back to the Java directory chooser when PowerShell is unavailable.
         }
