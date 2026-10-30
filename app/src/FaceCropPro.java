@@ -375,6 +375,7 @@ public final class FaceCropPro {
                                     if (existing.add(path)) { files.addElement(path); added++; }
                                 updateCount();
                                 status.setText("Added " + added + " images from " + folder.getAbsolutePath());
+                                generateCropPreviews();
                                 if (found.isEmpty()) JOptionPane.showMessageDialog(frame,
                                     "No JPG, JPEG, PNG or BMP images found in this folder or subfolders.");
                             } catch (Exception ex) {
@@ -810,7 +811,7 @@ public final class FaceCropPro {
             editOutput.setEnabled(false);
             return;
         }
-        editOutput.setEnabled(true);
+        editOutput.setEnabled(!previewFiles.isEmpty());
         outputPreview.setText("Loading output...");
         new SwingWorker<ImageIcon, Void>() {
             protected ImageIcon doInBackground() throws Exception {
