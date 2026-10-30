@@ -15,6 +15,8 @@ public final class FaceCropPro {
     private final JLabel engineStatus = new JLabel("Engine: checking...");
     private final JButton checkEngine = new JButton("Check Engine");
     private final JButton process = new JButton("Start Cropping");
+    private final JTextField inputPath = new JTextField();
+    private final JTextField outputPath = new JTextField();
     private final JButton cancel = new JButton("Cancel");
     private final JButton retry = new JButton("Retry Failed");
     private final JProgressBar progress = new JProgressBar(0, 100);
@@ -119,7 +121,28 @@ public final class FaceCropPro {
         JPanel controls = new JPanel(new BorderLayout());
         controls.add(toolbar, BorderLayout.NORTH);
         controls.add(options, BorderLayout.SOUTH);
-        center.add(controls, BorderLayout.NORTH);
+        JPanel folders = new JPanel(new GridLayout(2, 1, 4, 4));
+        folders.setBorder(BorderFactory.createTitledBorder("Input and output folders"));
+        JPanel inputRow = new JPanel(new BorderLayout(6, 0));
+        inputRow.add(new JLabel("Input:   "), BorderLayout.WEST);
+        inputPath.setToolTipText("Paste an input folder path or use Browse");
+        inputRow.add(inputPath, BorderLayout.CENTER);
+        JButton inputBrowse = new JButton("Browse Input");
+        inputBrowse.addActionListener(e -> chooseInputFolder());
+        inputRow.add(inputBrowse, BorderLayout.EAST);
+        JPanel outputRow = new JPanel(new BorderLayout(6, 0));
+        outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
+        outputPath.setToolTipText("Paste an output folder path or use Browse");
+        outputRow.add(outputPath, BorderLayout.CENTER);
+        JButton outputBrowse = new JButton("Browse Output");
+        outputBrowse.addActionListener(e -> chooseOutputFolder());
+        outputRow.add(outputBrowse, BorderLayout.EAST);
+        folders.add(inputRow);
+        folders.add(outputRow);
+        JPanel topControls = new JPanel(new BorderLayout(4, 4));
+        topControls.add(controls, BorderLayout.NORTH);
+        topControls.add(folders, BorderLayout.SOUTH);
+        center.add(topControls, BorderLayout.NORTH);
         center.add(new JScrollPane(fileList), BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
 
