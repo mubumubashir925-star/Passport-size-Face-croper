@@ -1,0 +1,91 @@
+name: Build Windows installer (experimental)
+on:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Publish a GitHub Release? Enter version like 0.2.0; leave empty for test build"
+        required: false
+        type: string
+        default: ""
+  push:
+    branches: [feature/face-crop-pro]
+    paths:
+      - 'app/src/**'
+      - 'installer.iss'
+      - 'launch.vbs'
+      - 'build-installer.bat'
+      - '.github/workflows/windows-installer.yml'
+permissions:
+  contents: write
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+          architecture: x64
+      - name: Set matching app and installer version
+        if: github.event_name == 'workflow_dispatch' && inputs.release_version != ''
+        shell: pwsh
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          $v = $env:RELEASE_VERSION
+          if ($v -notmatch '^[0-9]+[.][0-9]+[.][0-9]+$') { throw "Version must be like 0.2.0" }
+          $java = Get-Content app/src/AppUpdates.java -Raw
+          $java = $java.Replace('VERSION = "0.1.0"', 'VERSION = "' + $v + '"')
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'app/src/AppUpdates.java'), $java, (New-Object System.Text.UTF8Encoding($false)))
+          $iss = Get-Content installer.iss -Raw
+          $iss = $iss -replace '#define AppVersion "[^"]+"', ('#define AppVersion "' + $v + '"')
+          [System.IO.File]::WriteAllText((Join-Path $PWD 'installer.iss'), $iss, (New-Object System.Text.UTF8Encoding($false)))
+      - name: Compile Java 8 app
+        shell: cmd
+        run: |
+          if not exist build mkdir build
+          javac -source 8 -target 8 -encoding UTF-8 -cp "lib\opencv-455.jar;lib\flatlaf-3.5.jar" -d build app\src\*.java
+      - name: Download bundled Java 8 runtime and OpenCV 4.5.5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force runtime,models | Out-Null
+          Invoke-WebRequest 'https://api.adoptium.net/v3/binary/latest/8/ga/windows/x64/jre/hotspot/normal/eclipse' -OutFile jre.zip
+          Expand-Archive jre.zip -DestinationPath jre-unpacked
+          $javaw = Get-ChildItem jre-unpacked -Filter javaw.exe -Recurse | Select-Object -First 1
+          if (!$javaw) { throw 'Bundled JRE missing javaw.exe' }
+          $jreRoot = Split-Path (Split-Path $javaw.FullName -Parent) -Parent
+          Copy-Item -Path (Join-Path $jreRoot '*') -Destination 'runtime' -Recurse -Force
+          Invoke-WebRequest 'https://github.com/opencv/opencv/releases/download/4.5.5/opencv-4.5.5-vc14_vc15.exe' -OutFile opencv.exe
+          7z x opencv.exe '-oopencv-unpacked' -y | Out-Null
+          $dll = Get-ChildItem opencv-unpacked -Filter opencv_java455.dll -Recurse | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1
+          if (!$dll) { throw 'OpenCV x64 DLL not found' }
+          Copy-Item $dll.FullName lib\opencv_java455.dll
+          Invoke-WebRequest 'https://raw.githubusercontent.com/opencv/opencv/4.5.5/data/haarcascades/haarcascade_frontalface_alt2.xml' -OutFile models\haarcascade_frontalface_alt2.xml
+          Invoke-WebRequest 'https://raw.githubusercontent.com/opencv/opencv/4.5.5/data/haarcascades/haarcascade_eye.xml' -OutFile models\haarcascade_eye.xml
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+      - name: Package installer
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (!(Test-Path $compiler)) { throw 'Inno Setup compiler missing' }
+          & $compiler installer.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FaceCropPro-Setup-x64-UNTESTED
+          path: installer-output/FaceCropPro-Setup-x64.exe
+          if-no-files-found: error
+      - name: Publish installer as GitHub Release
+        if: github.event_name == 'workflow_dispatch' && inputs.release_version != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          $tag = "v$env:RELEASE_VERSION"
+          gh release create $tag installer-output/FaceCropPro-Setup-x64.exe --title "Face Crop Pro $tag" --notes "Windows x64 installer. Offline cropping. Windows 7 RTM compatibility is not guaranteed; test before deployment." --target $env:GITHUB_SHA
