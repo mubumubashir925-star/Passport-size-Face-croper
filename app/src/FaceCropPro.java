@@ -69,6 +69,8 @@ public final class FaceCropPro {
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
         toolbar.setBorder(BorderFactory.createTitledBorder("Photo processing"));
         JButton add = new JButton("Add Photos");
+        JButton addFolder = new JButton("Add Folder");
+        addFolder.addActionListener(e -> chooseInputFolder());
         JButton clear = new JButton("Clear");
         JButton preview = new JButton("Preview / Adjust");
         preview.addActionListener(e -> previewSelected());
@@ -82,6 +84,7 @@ public final class FaceCropPro {
         checkEngine.addActionListener(e -> checkEngine());
         toolbar.add(checkEngine);
         toolbar.add(add);
+        toolbar.add(addFolder);
         toolbar.add(clear);
         toolbar.add(preview);
         toolbar.add(process);
@@ -182,6 +185,22 @@ public final class FaceCropPro {
             }
             updateCount();
         }
+    }
+
+    private void chooseInputFolder() {
+        File folder = FolderPathDialog.choose(frame, "Choose input photo folder", null);
+        if (folder == null) return;
+        File[] images = folder.listFiles(f -> f.isFile() &&
+            f.getName().toLowerCase(java.util.Locale.ROOT).matches(".*\\\\.(jpg|jpeg|png|bmp)"));
+        if (images == null) {
+            JOptionPane.showMessageDialog(frame, "Cannot read this folder.");
+            return;
+        }
+        java.util.Arrays.sort(images, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
+        for (File photo : images)
+            if (!files.contains(photo.getAbsolutePath())) files.addElement(photo.getAbsolutePath());
+        updateCount();
+        status.setText("Added photos from " + folder.getAbsolutePath());
     }
 
     private static boolean openCvLoaded;
@@ -348,8 +367,7 @@ public final class FaceCropPro {
                                 File destination = new File(output, destinationName);
                                 if (destination.getCanonicalPath().equals(original.getCanonicalPath()))
                                     throw new IllegalStateException("Output would overwrite the original image");
-                                if (destination.exists())
-                                    throw new IllegalStateException("Output already exists: " + destinationName);
+                                // Existing output may be replaced; never overwrite the source photo.
                                 if (!extractAll && overrides.containsKey(name)) {
                                     org.opencv.core.Rect r = overrides.get(name);
                                     if (r.x < 0 || r.y < 0 || r.width <= 0 || r.height <= 0 ||
