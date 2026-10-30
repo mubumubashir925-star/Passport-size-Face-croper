@@ -28,6 +28,7 @@ public final class FaceCropPro {
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
+    private final JCheckBox trimBorders = new JCheckBox("Remove scan borders", true);
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
     private final JComboBox<String> preset = new JComboBox<String>(new String[]{"413 x 531", "466 x 600", "600 x 600", "Custom"});
     private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
@@ -93,6 +94,7 @@ public final class FaceCropPro {
         robotToggle.addActionListener(e -> toggleRobot());
         toolbar.add(robotToggle);
         toolbar.add(multipleFaces);
+        toolbar.add(trimBorders);
         toolbar.add(new JLabel("Size:"));
         toolbar.add(preset);
         toolbar.add(width);
@@ -279,6 +281,7 @@ public final class FaceCropPro {
     private void startCroppingTo(final File output) {
 
         final boolean extractAll = multipleFaces.isSelected();
+        final boolean trim = trimBorders.isSelected();
         final java.util.Map<String, org.opencv.core.Rect> overrides = new java.util.HashMap<String, org.opencv.core.Rect>(manualCrops);
         final int outputWidth = ((Number)width.getValue()).intValue();
         final int outputHeight = ((Number)height.getValue()).intValue();
@@ -316,6 +319,11 @@ public final class FaceCropPro {
                         try {
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
+                            if (trim && !overrides.containsKey(name)) {
+                                Mat clean = PhotoBorderTrim.trim(image);
+                                image.release();
+                                image = clean;
+                            }
                             List<Rect> faces = (!extractAll && overrides.containsKey(name))
                                 ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image);
                             if (faces.isEmpty()) throw new IllegalArgumentException("No face detected");
