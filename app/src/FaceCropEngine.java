@@ -96,8 +96,8 @@ public final class FaceCropEngine {
             throw new IllegalArgumentException("Invalid crop inputs");
         // Keep head near the upper third while avoiding oversized margins.
         double centerX = face.x + face.width * 0.5;
-        double desiredTop = face.y - face.height * 0.62;
-        double desiredHeight = face.height * 2.70;
+        double desiredTop = face.y - face.height * 0.85;
+        double desiredHeight = face.height * 3.05;
         double desiredWidth = desiredHeight * ratio;
         if (desiredWidth < face.width * 1.55) {
             desiredWidth = face.width * 1.40;
@@ -114,7 +114,7 @@ public final class FaceCropEngine {
         }
         int ix = (int)Math.round(Math.max(0, Math.min(imageW - iw, centerX - iw / 2.0)));
         int iy = (int)Math.round(Math.max(0, Math.min(imageH - ih, desiredTop)));
-        return new Rect(ix, iy, iw, ih);
+        // If the detected face is close to the top edge, prioritize keeping the scalp.\n        if (face.y < face.height * 0.35) iy = 0;\n        return new Rect(ix, iy, iw, ih);
     }
     public static Mat crop(Mat image, Rect face, int outW, int outH) {
         if (outW < 1 || outH < 1) throw new IllegalArgumentException("Invalid output size");
@@ -125,5 +125,24 @@ public final class FaceCropEngine {
                 bounds.width > outW ? Imgproc.INTER_AREA : Imgproc.INTER_CUBIC); }
         finally { region.release(); }
         return output;
+    }
+
+    /**
+     * Try quarter-turn orientations when the upright detector cannot find a face.
+     * Returns a finished crop; original source Mat remains untouched.
+     */
+    public Mat cropAutoOriented(Mat source, int outW, int outH) {
+        List<Rect> upright = detect(source);
+        if (!upright.isEmpty()) return cropAligned(source, upright.get(0), outW, outH);
+        int[] rotations = {Core.ROTATE_90_CLOCKWISE, Core.ROTATE_90_COUNTERCLOCKWISE, Core.ROTATE_180};
+        for (int rotation : rotations) {
+            Mat turned = new Mat();
+            try {
+                Core.rotate(source, turned, rotation);
+                List<Rect> faces = detect(turned);
+                if (!faces.isEmpty()) return cropAligned(turned, faces.get(0), outW, outH);
+            } finally { turned.release(); }
+        }
+        return null;
     }
 }
