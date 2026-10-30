@@ -51,7 +51,7 @@ public final class FaceCropPro {
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
     private final JCheckBox trimBorders = new JCheckBox("Remove scan borders", true);
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
-    private final JComboBox<String> preset = new JComboBox<String>(new String[]{"413 x 531", "466 x 600", "600 x 600", "Custom"});
+    private final JComboBox<String> preset = new JComboBox<String>(new String[]{"Passport portrait · 413 x 531", "ID portrait · 466 x 600", "Square headshot · 600 x 600", "Custom size"});
     private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
     private final JSpinner height = new JSpinner(new SpinnerNumberModel(531, 100, 6000, 1));
 
@@ -126,6 +126,10 @@ public final class FaceCropPro {
         options.add(trimBorders);
         options.add(new JLabel("Size:"));
         options.add(preset);
+        JButton comparePresets = new JButton("See Input / Output Examples");
+        comparePresets.setToolTipText("Compare each preset using a photo from your gallery");
+        comparePresets.addActionListener(e -> showPresetExamples());
+        options.add(comparePresets);
         options.add(width);
         options.add(new JLabel("x"));
         options.add(height);
@@ -320,6 +324,89 @@ public final class FaceCropPro {
         } catch (Exception ex) {
             status.setText("Unable to change theme: " + ex.getMessage());
         }
+    }
+
+    /** Show real input and output samples for every preset, not generic illustrations. */
+    private void showPresetExamples() {
+        if (files.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Load photos first to see real crop examples.");
+            return;
+        }
+        String path = fileList.getSelectedValue();
+        if (path == null) path = files.get(0);
+        final String sample = path;
+        final JDialog dialog = new JDialog(frame, "Crop Presets · Input and Output Examples", true);
+        JPanel content = new JPanel(new BorderLayout(10, 10));
+        content.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+        JLabel info = new JLabel("Generating crop examples from " + new File(sample).getName() + "...");
+        content.add(info, BorderLayout.NORTH);
+        JPanel gallery = new JPanel(new GridLayout(1, 4, 12, 12));
+        content.add(new JScrollPane(gallery), BorderLayout.CENTER);
+        dialog.setContentPane(content);
+        dialog.setSize(950, 400);
+        dialog.setLocationRelativeTo(frame);
+        final String[] labels = {"Input photo", "Passport 413 x 531",
+            "ID 466 x 600", "Square 600 x 600"};
+        new SwingWorker<java.awt.image.BufferedImage[], Void>() {
+            protected java.awt.image.BufferedImage[] doInBackground() throws Exception {
+                java.awt.image.BufferedImage[] examples = new java.awt.image.BufferedImage[4];
+                examples[0] = javax.imageio.ImageIO.read(new File(sample));
+                ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+                FaceCropEngine engine = new FaceCropEngine(new File("models/haarcascade_frontalface_alt.xml"));
+                Mat source = Imgcodecs.imread(sample);
+                try {
+                    int[][] sizes = {{413,531},{466,600},{600,600}};
+                    for (int i=0;i<sizes.length;i++) {
+                        Mat cropped = engine.cropAutoOriented(source,sizes[i][0],sizes[i][1]);
+                        try {
+                            if (cropped != null && !cropped.empty()) {
+                                org.opencv.core.MatOfByte encoded = new org.opencv.core.MatOfByte();
+                                try {
+                                    Imgcodecs.imencode(".png", cropped, encoded);
+                                    examples[i+1] = javax.imageio.ImageIO.read(
+                                        new java.io.ByteArrayInputStream(encoded.toArray()));
+                                } finally { encoded.release(); }
+                            }
+                        } finally { if(cropped != null) cropped.release(); }
+                    }
+                } finally { source.release(); }
+                return examples;
+            }
+            protected void done() {
+                try {
+                    java.awt.image.BufferedImage[] images = get();
+                    gallery.removeAll();
+                    for (int i=0;i<4;i++) {
+                        JPanel panel = new JPanel(new BorderLayout(4,4));
+                        JLabel title = new JLabel(labels[i],SwingConstants.CENTER);
+                        panel.add(title,BorderLayout.NORTH);
+                        if(images[i] != null) {
+                            java.awt.Image scaled = images[i].getScaledInstance(
+                                Math.max(1,(int)(images[i].getWidth() *
+                                    Math.min(190.0/images[i].getWidth(), 255.0/images[i].getHeight()))),
+                                Math.max(1,(int)(images[i].getHeight() *
+                                    Math.min(190.0/images[i].getWidth(), 255.0/images[i].getHeight()))),
+                                java.awt.Image.SCALE_SMOOTH);
+                            panel.add(new JLabel(new ImageIcon(scaled),SwingConstants.CENTER),BorderLayout.CENTER);
+                        } else panel.add(new JLabel("No face found",SwingConstants.CENTER),BorderLayout.CENTER);
+                        if(i>0) {
+                            final int index=i-1;
+                            JButton choose=new JButton("Use this preset");
+                            choose.addActionListener(e -> {
+                                preset.setSelectedIndex(index);
+                                dialog.dispose();
+                                generateCropPreviews();
+                            });
+                            panel.add(choose,BorderLayout.SOUTH);
+                        }
+                        gallery.add(panel);
+                    }
+                    info.setText("Original and actual crop examples · " + new File(sample).getName());
+                    gallery.revalidate(); gallery.repaint();
+                } catch(Exception ex) { info.setText("Cannot generate examples: "+ex.getMessage()); }
+            }
+        }.execute();
+        dialog.setVisible(true);
     }
 
     private void checkEngine() {
