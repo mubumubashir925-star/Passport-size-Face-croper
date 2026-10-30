@@ -30,6 +30,7 @@ public final class FaceCropPro {
     private File robotOutput;
     private final java.util.Set<String> robotSeen = new java.util.HashSet<String>();
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
+    private final JLabel failedCount = new JLabel("Failed: 0");
     private final JList<String> fileList = new JList<String>(files);
     private final JLabel outputPreview = new JLabel("Select an output preview thumbnail", SwingConstants.CENTER);
     private final DefaultListModel<String> previewModel = new DefaultListModel<String>();
@@ -264,6 +265,7 @@ public final class FaceCropPro {
         JPanel footer = new JPanel(new BorderLayout(8, 8));
         JPanel footerTop = new JPanel(new BorderLayout());
         footerTop.add(count, BorderLayout.WEST);
+        footerTop.add(failedCount, BorderLayout.CENTER);
         footerTop.add(engineStatus, BorderLayout.EAST);
         footer.add(footerTop, BorderLayout.NORTH);
         progress.setStringPainted(true);
@@ -661,6 +663,7 @@ public final class FaceCropPro {
         retry.setEnabled(false);
         stopRequested = false;
         failedFiles.clear();
+        failedCount.setText("Failed: 0");
         progress.setValue(0);
         final java.util.List<String> selected = new java.util.ArrayList<String>();
         for (int i = 0; i < files.size(); i++) selected.add(files.get(i));
@@ -764,11 +767,18 @@ public final class FaceCropPro {
                 }
                 retry.setEnabled(!failedFiles.isEmpty());
                 refreshSelectedOutput();
+                failedCount.setText("Failed: " + failedFiles.size());
                 try {
                     int[] result = get();
-                    JOptionPane.showMessageDialog(frame,
-                        "Saved: " + result[0] + "\\nFailed: " + result[1] +
-                        "\\nEngine status: " + status.getText());
+                    StringBuilder summary = new StringBuilder("Saved: " + result[0] + "\\nFailed: " + result[1]);
+                    if (!failedFiles.isEmpty()) {
+                        summary.append("\\n\\nFailed files (first 20):");
+                        for (int i = 0; i < Math.min(20, failedFiles.size()); i++)
+                            summary.append("\\n- ").append(new File(failedFiles.get(i)).getName());
+                        summary.append("\\n\\nUse Retry Failed to try again.");
+                    }
+                    JOptionPane.showMessageDialog(frame, summary.toString(), "Cropping result",
+                        result[1] > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(frame, ex.getMessage());
                 }
