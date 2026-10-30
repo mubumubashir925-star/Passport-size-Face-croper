@@ -641,6 +641,45 @@ public final class FaceCropPro {
         worker.execute();
     }
 
+    private void loadThumbnail(final String path) {
+        if (!thumbnailJobs.add(path)) return;
+        thumbnailPool.execute(() -> {
+            try {
+                javax.imageio.ImageReader reader = null;
+                try (javax.imageio.stream.ImageInputStream stream =
+                        javax.imageio.ImageIO.createImageInputStream(new File(path))) {
+                    if (stream != null) {
+                        java.util.Iterator<javax.imageio.ImageReader> available =
+                            javax.imageio.ImageIO.getImageReaders(stream);
+                        if (available.hasNext()) {
+                            reader = available.next();
+                            reader.setInput(stream, true, true);
+                            int w = reader.getWidth(0);
+                            int h = reader.getHeight(0);
+                            int sample = Math.max(1, Math.max(w / 120, h / 130));
+                            javax.imageio.ImageReadParam params = reader.getDefaultReadParam();
+                            params.setSourceSubsampling(sample, sample, 0, 0);
+                            java.awt.image.BufferedImage image = reader.read(0, params);
+                            if (image != null) {
+                                double scale = Math.min(120.0 / image.getWidth(), 125.0 / image.getHeight());
+                                int tw = Math.max(1, (int)(image.getWidth() * scale));
+                                int th = Math.max(1, (int)(image.getHeight() * scale));
+                                thumbnails.put(path, new ImageIcon(image.getScaledInstance(tw, th, Image.SCALE_FAST)));
+                                image.flush();
+                            }
+                        }
+                    }
+                } finally {
+                    if (reader != null) reader.dispose();
+                }
+            } catch (Exception ignored) {
+                thumbnails.put(path, new ImageIcon(new java.awt.image.BufferedImage(1, 1,
+                    java.awt.image.BufferedImage.TYPE_INT_ARGB)));
+            }
+            SwingUtilities.invokeLater(() -> fileList.repaint());
+        });
+    }
+
     private void updateCount() {
         count.setText(files.size() + " images selected");
     }
