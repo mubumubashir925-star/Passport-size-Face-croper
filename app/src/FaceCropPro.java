@@ -129,7 +129,13 @@ public final class FaceCropPro {
         inputRow.add(inputPath, BorderLayout.CENTER);
         JButton inputBrowse = new JButton("Browse Input");
         inputBrowse.addActionListener(e -> chooseInputFolder());
-        inputRow.add(inputBrowse, BorderLayout.EAST);
+        JPanel inputActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+        JButton loadInput = new JButton("Load Path");
+        loadInput.addActionListener(e -> loadPastedInput());
+        inputPath.addActionListener(e -> loadPastedInput());
+        inputActions.add(loadInput);
+        inputActions.add(inputBrowse);
+        inputRow.add(inputActions, BorderLayout.EAST);
         JPanel outputRow = new JPanel(new BorderLayout(6, 0));
         outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
         outputPath.setToolTipText("Paste an output folder path or use Browse");
@@ -276,6 +282,47 @@ public final class FaceCropPro {
             }
         };
         picker.execute();
+    }
+
+    private void loadPastedInput() {
+        File folder = new File(inputPath.getText().trim());
+        if (!folder.isDirectory()) {
+            JOptionPane.showMessageDialog(frame, "Input folder does not exist.");
+            return;
+        }
+        status.setText("Scanning " + folder.getAbsolutePath() + "...");
+        new SwingWorker<java.util.List<String>, Void>() {
+            protected java.util.List<String> doInBackground() throws Exception {
+                final java.util.List<String> found = new java.util.ArrayList<String>();
+                java.nio.file.Files.walkFileTree(folder.toPath(),
+                    new java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+                        public java.nio.file.FileVisitResult visitFile(java.nio.file.Path path,
+                                java.nio.file.attribute.BasicFileAttributes attrs) {
+                            if (attrs.isRegularFile() && isPhoto(path.getFileName().toString()))
+                                found.add(path.toAbsolutePath().toString());
+                            return java.nio.file.FileVisitResult.CONTINUE;
+                        }
+                        public java.nio.file.FileVisitResult visitFileFailed(java.nio.file.Path path,
+                                java.io.IOException error) { return java.nio.file.FileVisitResult.CONTINUE; }
+                    });
+                java.util.Collections.sort(found, String.CASE_INSENSITIVE_ORDER);
+                return found;
+            }
+            protected void done() {
+                try {
+                    java.util.Set<String> existing = new java.util.HashSet<String>();
+                    for (int i = 0; i < files.size(); i++) existing.add(files.get(i));
+                    int added = 0;
+                    for (String path : get())
+                        if (existing.add(path)) { files.addElement(path); added++; }
+                    updateCount();
+                    status.setText("Loaded " + added + " photos from " + folder.getAbsolutePath());
+                } catch (Exception ex) {
+                    status.setText("Input folder scan failed: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(frame, ex.toString());
+                }
+            }
+        }.execute();
     }
 
     private static boolean openCvLoaded;
