@@ -194,19 +194,56 @@ public final class FaceCropPro {
     }
 
     private void chooseInputFolder() {
-        File folder = FolderPathDialog.choose(frame, "Choose input photo folder", null);
-        if (folder == null) return;
-        File[] images = folder.listFiles(f -> f.isFile() &&
-            isPhoto(f.getName()));
-        if (images == null) {
-            JOptionPane.showMessageDialog(frame, "Cannot read this folder.");
-            return;
-        }
-        java.util.Arrays.sort(images, (a, b) -> a.getName().compareToIgnoreCase(b.getName()));
-        for (File photo : images)
-            if (!files.contains(photo.getAbsolutePath())) files.addElement(photo.getAbsolutePath());
-        updateCount();
-        status.setText("Added photos from " + folder.getAbsolutePath());
+        status.setText("Opening folder picker...");
+        final javax.swing.SwingWorker<File, Void> picker = new javax.swing.SwingWorker<File, Void>() {
+            protected File doInBackground() {
+                return FolderPathDialog.choose(frame, "Choose input photo folder", null);
+            }
+            protected void done() {
+                try {
+                    final File folder = get();
+                    if (folder == null) { status.setText("Folder selection cancelled"); return; }
+                    if (!folder.isDirectory()) {
+                        JOptionPane.showMessageDialog(frame, "Not a valid folder: " + folder);
+                        return;
+                    }
+                    status.setText("Scanning images in " + folder.getAbsolutePath() + "...");
+                    new javax.swing.SwingWorker<java.util.List<String>, Void>() {
+                        protected java.util.List<String> doInBackground() {
+                            java.util.List<String> found = new java.util.ArrayList<String>();
+                            File[] images = folder.listFiles();
+                            if (images == null) throw new IllegalStateException("Cannot read selected folder");
+                            for (File image : images)
+                                if (image.isFile() && isPhoto(image.getName()))
+                                    found.add(image.getAbsolutePath());
+                            java.util.Collections.sort(found, String.CASE_INSENSITIVE_ORDER);
+                            return found;
+                        }
+                        protected void done() {
+                            try {
+                                java.util.List<String> found = get();
+                                java.util.Set<String> existing = new java.util.HashSet<String>();
+                                for (int i = 0; i < files.size(); i++) existing.add(files.get(i));
+                                int added = 0;
+                                for (String path : found)
+                                    if (existing.add(path)) { files.addElement(path); added++; }
+                                updateCount();
+                                status.setText("Added " + added + " images from " + folder.getAbsolutePath());
+                                if (found.isEmpty()) JOptionPane.showMessageDialog(frame,
+                                    "No JPG, JPEG, PNG or BMP images found directly in this folder.");
+                            } catch (Exception ex) {
+                                status.setText("Folder scan failed: " + ex.getMessage());
+                                JOptionPane.showMessageDialog(frame, ex.toString(), "Folder scan error", JOptionPane.ERROR_MESSAGE);
+                            }
+                        }
+                    }.execute();
+                } catch (Exception ex) {
+                    status.setText("Folder picker failed: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(frame, ex.toString(), "Folder picker error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        picker.execute();
     }
 
     private static boolean openCvLoaded;
