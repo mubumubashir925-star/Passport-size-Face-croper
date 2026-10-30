@@ -72,27 +72,37 @@ public final class FolderPathDialog {
                 "Folder picker unavailable", JOptionPane.ERROR_MESSAGE);
             return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
         }
+        File resultFile = null;
         try {
+            resultFile = File.createTempFile("facecrop-folder-", ".txt");
+            if (!resultFile.delete()) throw new java.io.IOException("Cannot prepare picker result file");
             Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA",
-                "-ExecutionPolicy", "Bypass", "-File", script.getAbsolutePath())
-                .redirectErrorStream(true).start();
-            String selected = null;
+                "-ExecutionPolicy", "Bypass", "-File", script.getAbsolutePath(),
+                resultFile.getAbsolutePath()).redirectErrorStream(true).start();
             StringBuilder diagnostics = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
-                while ((line = reader.readLine()) != null) {
-                    if (new File(line.trim()).isDirectory()) selected = line.trim();
-                    else diagnostics.append(line).append("\\n");
-                }
+                while ((line = reader.readLine()) != null) diagnostics.append(line).append("\\n");
             }
-            if (process.waitFor() == 0) return selected == null ? new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE") : new File(selected);
-            JOptionPane.showMessageDialog(parent, "Native Windows picker failed:\\n" + diagnostics.toString(),
-                "Folder picker error", JOptionPane.ERROR_MESSAGE);
+            int exit = process.waitFor();
+            if (exit == 0) {
+                if (!resultFile.isFile()) return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
+                byte[] bytes = java.nio.file.Files.readAllBytes(resultFile.toPath());
+                String selected = new String(bytes, java.nio.charset.StandardCharsets.UTF_16LE);
+                if (selected.startsWith("\\uFEFF")) selected = selected.substring(1);
+                File folder = new File(selected.trim());
+                if (folder.isDirectory()) return folder;
+                throw new java.io.IOException("Selected folder not found: " + selected);
+            }
+            throw new java.io.IOException("PowerShell exited with code " + exit + ": " + diagnostics);
         } catch (Exception error) {
-            JOptionPane.showMessageDialog(parent, "Native Windows picker failed: " + error.toString(),
-                "Folder picker error", JOptionPane.ERROR_MESSAGE);
+            SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(parent,
+                "Native Windows picker failed: " + error.toString(),
+                "Folder picker error", JOptionPane.ERROR_MESSAGE));
+            return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
+        } finally {
+            if (resultFile != null) resultFile.delete();
         }
-        return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
     }
 
     private static File parse(String raw) {
