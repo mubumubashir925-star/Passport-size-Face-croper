@@ -29,6 +29,8 @@ public final class OutputPerspectiveEditor {
             double x0 = (source.getWidth()-cropWidth)/2, y0=(source.getHeight()-cropHeight)/2;
             double[][] corners = {{x0,y0},{x0+cropWidth,y0},
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
+            JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners");
+            JCheckBox grid = new JCheckBox("Show 3 x 3 grid");
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
@@ -46,8 +48,20 @@ public final class OutputPerspectiveEditor {
                         }
                         public void mouseDragged(MouseEvent e) {
                             if(moving<0) return;
-                            corners[moving][0]=Math.max(0,Math.min(source.getWidth()-1,(e.getX()-ox)/scale));
-                            corners[moving][1]=Math.max(0,Math.min(source.getHeight()-1,(e.getY()-oy)/scale));
+                            double nx=Math.max(0,Math.min(source.getWidth()-1,(e.getX()-ox)/scale));
+                            double ny=Math.max(0,Math.min(source.getHeight()-1,(e.getY()-oy)/scale));
+                            if(perspective.isSelected()) {
+                                corners[moving][0]=nx;corners[moving][1]=ny;
+                            } else {
+                                int opposite=(moving+2)%4;
+                                double fixedX=corners[opposite][0], fixedY=corners[opposite][1];
+                                double left=Math.min(nx,fixedX),right=Math.max(nx,fixedX);
+                                double top=Math.min(ny,fixedY),bottom=Math.max(ny,fixedY);
+                                corners[0][0]=left;corners[0][1]=top;
+                                corners[1][0]=right;corners[1][1]=top;
+                                corners[2][0]=right;corners[2][1]=bottom;
+                                corners[3][0]=left;corners[3][1]=bottom;
+                            }
                             repaint();
                         }
                         public void mouseReleased(MouseEvent e) {moving=-1;}
@@ -70,13 +84,35 @@ public final class OutputPerspectiveEditor {
                         a.drawLine(x,y,(int)(ox+corners[j][0]*scale),(int)(oy+corners[j][1]*scale));
                         a.fillOval(x-7,y-7,14,14);
                     }
+                    if(grid.isSelected()) {
+                        a.setColor(new Color(0,255,255,140));
+                        a.setStroke(new BasicStroke(1));
+                        for(int k=1;k<3;k++) {
+                            double t=k/3.0;
+                            double xa=corners[0][0]*(1-t)+corners[3][0]*t;
+                            double ya=corners[0][1]*(1-t)+corners[3][1]*t;
+                            double xb=corners[1][0]*(1-t)+corners[2][0]*t;
+                            double yb=corners[1][1]*(1-t)+corners[2][1]*t;
+                            a.drawLine((int)(ox+xa*scale),(int)(oy+ya*scale),
+                                (int)(ox+xb*scale),(int)(oy+yb*scale));
+                            xa=corners[0][0]*(1-t)+corners[1][0]*t;
+                            ya=corners[0][1]*(1-t)+corners[1][1]*t;
+                            xb=corners[3][0]*(1-t)+corners[2][0]*t;
+                            yb=corners[3][1]*(1-t)+corners[2][1]*t;
+                            a.drawLine((int)(ox+xa*scale),(int)(oy+ya*scale),
+                                (int)(ox+xb*scale),(int)(oy+yb*scale));
+                        }
+                    }
                     a.dispose();
                 }
             };
             dialog.setLayout(new BorderLayout(8,8));
             dialog.add(canvas,BorderLayout.CENTER);
             JPanel bottom=new JPanel(new BorderLayout());
-            bottom.add(new JLabel("Drag any corner freely on the FULL ORIGINAL photo. Save adjusts the preview; Start Cropping exports it."),BorderLayout.NORTH);
+            JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
+            options.add(perspective);options.add(grid);
+            grid.addActionListener(e->canvas.repaint());
+            bottom.add(options,BorderLayout.NORTH);
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.RIGHT));
             JButton reset=new JButton("Reset Corners");
             reset.addActionListener(e->{
