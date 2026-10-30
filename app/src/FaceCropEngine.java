@@ -94,22 +94,26 @@ public final class FaceCropEngine {
     public static Rect cropRect(Rect face, int imageW, int imageH, double ratio) {
         if (face == null || imageW <= 0 || imageH <= 0 || ratio <= 0)
             throw new IllegalArgumentException("Invalid crop inputs");
-        double centerX = face.x + face.width / 2.0;
-        double top = face.y - 0.42 * face.height;
-        double bottom = face.y + 2.10 * face.height;
-        double height = bottom - top;
-        double width = height * ratio;
-        if (width < face.width * 1.55) {
-            width = face.width * 1.75;
-            height = width / ratio;
+        // Keep head near the upper third while avoiding oversized margins.
+        double centerX = face.x + face.width * 0.5;
+        double desiredTop = face.y - face.height * 0.34;
+        double desiredHeight = face.height * 2.35;
+        double desiredWidth = desiredHeight * ratio;
+        if (desiredWidth < face.width * 1.40) {
+            desiredWidth = face.width * 1.40;
+            desiredHeight = desiredWidth / ratio;
         }
-        double scale = Math.min(1.0, Math.min(imageW / width, imageH / height));
-        width *= scale; height *= scale;
-        double x = Math.max(0, Math.min(imageW - width, centerX - width / 2));
-        double y = Math.max(0, Math.min(imageH - height, top));
-        int ix = (int)Math.round(x), iy = (int)Math.round(y);
-        int iw = Math.min(imageW - ix, Math.max(1, (int)Math.floor(width)));
-        int ih = Math.min(imageH - iy, Math.max(1, (int)Math.floor(height)));
+        // Fit a ratio-preserving rectangle inside the source without stretching faces.
+        double fit = Math.min(1.0, Math.min(imageW / desiredWidth, imageH / desiredHeight));
+        int iw = Math.max(1, Math.min(imageW, (int)Math.floor(desiredWidth * fit)));
+        int ih = Math.max(1, Math.min(imageH, (int)Math.floor(iw / ratio)));
+        // Reconcile integer rounding with image height, retaining target aspect ratio.
+        if (ih > imageH) {
+            ih = imageH;
+            iw = Math.max(1, Math.min(imageW, (int)Math.floor(ih * ratio)));
+        }
+        int ix = (int)Math.round(Math.max(0, Math.min(imageW - iw, centerX - iw / 2.0)));
+        int iy = (int)Math.round(Math.max(0, Math.min(imageH - ih, desiredTop)));
         return new Rect(ix, iy, iw, ih);
     }
     public static Mat crop(Mat image, Rect face, int outW, int outH) {
