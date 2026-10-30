@@ -42,9 +42,15 @@ public final class FaceCropPro {
 
         JPanel root = new JPanel(new BorderLayout(16, 16));
         root.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        JLabel heading = new JLabel("Face Crop Pro");
+        JLabel heading = new JLabel("Face Crop Pro  v" + AppUpdates.VERSION);
         heading.setFont(heading.getFont().deriveFont(Font.BOLD, 26f));
-        root.add(heading, BorderLayout.NORTH);
+        JPanel header = new JPanel(new BorderLayout());
+        header.add(heading, BorderLayout.WEST);
+        JButton updates = new JButton("Check for Updates");
+        updates.setToolTipText("Requires internet only while checking; cropping works offline");
+        updates.addActionListener(e -> AppUpdates.check(frame));
+        header.add(updates, BorderLayout.EAST);
+        root.add(header, BorderLayout.NORTH);
 
         JPanel sidebar = new JPanel(new GridLayout(0, 1, 0, 8));
         sidebar.setPreferredSize(new Dimension(190, 0));
