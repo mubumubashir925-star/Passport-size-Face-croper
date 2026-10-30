@@ -153,7 +153,7 @@ public final class FaceCropPro {
         outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
         outputPath.setToolTipText("Paste an output folder path and press Enter");
         outputPath.addActionListener(e -> {
-            File folder=new File(outputPath.getText().trim().replace("\\\"",""));
+            File folder=new File(outputPath.getText().trim().replace(String.valueOf((char)34),""));
             if(folder.isDirectory()) status.setText("Output folder ready: "+folder.getAbsolutePath());
             else status.setText("Output folder does not exist: "+folder.getAbsolutePath());
         });
