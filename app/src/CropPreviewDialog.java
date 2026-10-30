@@ -15,6 +15,7 @@ public final class CropPreviewDialog extends JDialog {
     private final JLabel hint = new JLabel("Drag inside the crop box to move; drag corners to resize. Reset restores suggested crop.");
     private Rectangle2D.Double crop;
     private Rectangle result;
+    private int navigation;
     private Point start;
     private Rectangle2D.Double original;
     private int dragMode; // 1 move, 2 resize
@@ -34,6 +35,12 @@ public final class CropPreviewDialog extends JDialog {
         JPanel bottom = new JPanel(new BorderLayout(8, 8));
         bottom.add(hint, BorderLayout.NORTH);
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton previous = new JButton("◀ Previous");
+        JButton next = new JButton("Next ▶");
+        previous.addActionListener(e -> { navigation = -1; dispose(); });
+        next.addActionListener(e -> { navigation = 1; dispose(); });
+        buttons.add(previous);
+        buttons.add(next);
         JButton reset = new JButton("Reset");
         JButton cancel = new JButton("Cancel");
         JButton apply = new JButton("Apply Crop");
@@ -50,6 +57,22 @@ public final class CropPreviewDialog extends JDialog {
         setSize(950, 740);
         setMinimumSize(new Dimension(550, 450));
         setLocationRelativeTo(owner);
+    }
+
+    public static final class PreviewResult {
+        public final Rectangle crop;
+        public final int direction;
+        PreviewResult(Rectangle crop, int direction) { this.crop = crop; this.direction = direction; }
+    }
+
+    public static PreviewResult editNavigable(Window owner, File file, Rectangle suggested,
+            int w, int h) throws IOException {
+        BufferedImage image = ImageIO.read(file);
+        if (image == null) throw new IOException("Unsupported image: " + file);
+        CropPreviewDialog dialog = new CropPreviewDialog(owner, image, suggested, w, h);
+        dialog.setTitle("Crop Preview - " + file.getName());
+        dialog.setVisible(true);
+        return new PreviewResult(dialog.result, dialog.navigation);
     }
 
     public static Rectangle edit(Window owner, File file, Rectangle suggested, int w, int h) throws IOException {
