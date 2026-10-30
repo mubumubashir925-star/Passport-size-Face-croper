@@ -9,6 +9,8 @@ import org.opencv.imgcodecs.Imgcodecs;
 /** Phase 1: Java 8-compatible unified desktop shell. */
 public final class FaceCropPro {
     private final JFrame frame = new JFrame("Face Crop Pro");
+    private boolean darkTheme = false;
+    private final java.util.List<JPanel> styledPanels = new java.util.ArrayList<JPanel>();
     private final DefaultListModel<String> files = new DefaultListModel<String>();
     private final JLabel status = new JLabel("Ready — add photos to begin");
     private final JLabel count = new JLabel("0 images selected");
@@ -54,25 +56,34 @@ public final class FaceCropPro {
 
     private FaceCropPro() {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        frame.setIconImage(makeAppIcon(64));
         frame.setMinimumSize(new Dimension(900, 580));
         frame.setSize(1050, 680);
         frame.setLocationRelativeTo(null);
 
         JPanel root = new JPanel(new BorderLayout(16, 16));
-        root.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        JLabel heading = new JLabel("Face Crop Pro  v" + AppUpdates.VERSION);
+        root.setBorder(BorderFactory.createEmptyBorder(16, 18, 16, 18));
+        JLabel heading = new JLabel("  Face Crop Pro  v" + AppUpdates.VERSION);
+        heading.setIcon(new ImageIcon(makeAppIcon(40)));
+        heading.setIconTextGap(12);
         heading.setFont(heading.getFont().deriveFont(Font.BOLD, 26f));
         JPanel header = new JPanel(new BorderLayout());
         header.add(heading, BorderLayout.WEST);
         JButton updates = new JButton("Check for Updates");
         updates.setToolTipText("Requires internet only while checking; cropping works offline");
         updates.addActionListener(e -> AppUpdates.check(frame));
-        header.add(updates, BorderLayout.EAST);
+        JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        JComboBox<String> themePicker = new JComboBox<String>(new String[]{"Light theme", "Dark theme"});
+        themePicker.setToolTipText("Switch between light and dark appearance");
+        themePicker.addActionListener(e -> switchTheme(themePicker.getSelectedIndex() == 1));
+        headerActions.add(themePicker);
+        headerActions.add(updates);
+        header.add(headerActions, BorderLayout.EAST);
         root.add(header, BorderLayout.NORTH);
 
         JPanel center = new JPanel(new BorderLayout(8, 8));
         JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 8));
-        toolbar.setBorder(BorderFactory.createTitledBorder("Photo processing"));
+        toolbar.setBorder(BorderFactory.createTitledBorder("PHOTO PROCESSING"));
         JButton add = new JButton("Add Photos");
         JButton addFolder = new JButton("Add Folder");
         addFolder.addActionListener(e -> chooseInputFolder());
@@ -127,7 +138,7 @@ public final class FaceCropPro {
         controls.add(toolbar, BorderLayout.NORTH);
         controls.add(options, BorderLayout.SOUTH);
         JPanel folders = new JPanel(new GridLayout(2, 1, 4, 4));
-        folders.setBorder(BorderFactory.createTitledBorder("Input and output folders"));
+        folders.setBorder(BorderFactory.createTitledBorder("FOLDERS  ·  paste a path and press Enter"));
         JPanel inputRow = new JPanel(new BorderLayout(6, 0));
         inputRow.add(new JLabel("Input:   "), BorderLayout.WEST);
         inputPath.setToolTipText("Paste an input folder path or use Browse");
@@ -202,7 +213,7 @@ public final class FaceCropPro {
         gallery.add(galleryBar, BorderLayout.NORTH);
         gallery.add(new JScrollPane(fileList), BorderLayout.CENTER);
         JPanel outputPanel = new JPanel(new BorderLayout(6, 6));
-        outputPanel.setBorder(BorderFactory.createTitledBorder("Output Preview"));
+        outputPanel.setBorder(BorderFactory.createTitledBorder("CROP PREVIEW"));
         previewList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
         previewList.setVisibleRowCount(-1);
         previewList.setFixedCellWidth(145);
@@ -241,7 +252,7 @@ public final class FaceCropPro {
         fileList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) refreshSelectedOutput();
         });
-        gallery.setBorder(BorderFactory.createTitledBorder("Input Images"));
+        gallery.setBorder(BorderFactory.createTitledBorder("INPUT IMAGES"));
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gallery, outputPanel);
         split.setResizeWeight(0.52);
         center.add(split, BorderLayout.CENTER);
@@ -260,7 +271,53 @@ public final class FaceCropPro {
         footer.add(status, BorderLayout.SOUTH);
         root.add(footer, BorderLayout.SOUTH);
         frame.setContentPane(root);
+        applyAccent();
         SwingUtilities.invokeLater(() -> checkEngine());
+    }
+
+
+    /** Drawn in Java 8 so the title-bar icon works offline on Windows 7/10/11. */
+    private static java.awt.image.BufferedImage makeAppIcon(int size) {
+        java.awt.image.BufferedImage image = new java.awt.image.BufferedImage(size, size, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = image.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(new Color(18, 40, 64));
+        g.fillRoundRect(0, 0, size - 1, size - 1, size / 4, size / 4);
+        g.setColor(new Color(41, 208, 190));
+        g.setStroke(new BasicStroke(Math.max(2f, size / 15f), BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        int m = size / 5, l = size / 5;
+        g.drawLine(m, m + l, m, m); g.drawLine(m, m, m + l, m);
+        g.drawLine(size-m-l, m, size-m, m); g.drawLine(size-m, m, size-m, m+l);
+        g.drawLine(m, size-m-l, m, size-m); g.drawLine(m, size-m, m+l, size-m);
+        g.drawLine(size-m-l, size-m, size-m, size-m); g.drawLine(size-m, size-m-l, size-m, size-m);
+        g.setColor(Color.WHITE);
+        g.setStroke(new BasicStroke(Math.max(1.5f, size / 28f)));
+        g.drawOval(size * 36 / 100, size * 29 / 100, size * 28 / 100, size * 28 / 100);
+        g.drawArc(size * 27 / 100, size * 47 / 100, size * 46 / 100, size * 34 / 100, 15, 150);
+        g.dispose();
+        return image;
+    }
+
+    private void applyAccent() {
+        process.setBackground(new Color(18, 137, 105));
+        process.setForeground(Color.WHITE);
+        process.setFont(process.getFont().deriveFont(Font.BOLD, 17f));
+        process.setFocusPainted(false);
+        progress.setForeground(new Color(18, 137, 105));
+    }
+
+    private void switchTheme(boolean dark) {
+        if (darkTheme == dark) return;
+        darkTheme = dark;
+        try {
+            UIManager.setLookAndFeel(dark ? "com.formdev.flatlaf.FlatDarkLaf" : "com.formdev.flatlaf.FlatLightLaf");
+            SwingUtilities.updateComponentTreeUI(frame);
+            applyAccent();
+            frame.revalidate();
+            frame.repaint();
+        } catch (Exception ex) {
+            status.setText("Unable to change theme: " + ex.getMessage());
+        }
     }
 
     private void checkEngine() {
