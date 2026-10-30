@@ -638,7 +638,7 @@ public final class FaceCropPro {
                             File preparedPreview = !extractAll ? prepared.get(name) : null;
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
-                            if (trim && !overrides.containsKey(name)) {
+                            if (preparedPreview == null && trim && !overrides.containsKey(name)) {
                                 Mat rectified = PerspectivePhotoTrim.trim(image);
                                 try {
                                     Mat clean = PhotoBorderTrim.trim(rectified);
@@ -646,8 +646,10 @@ public final class FaceCropPro {
                                     image = clean;
                                 } finally { rectified.release(); }
                             }
-                            List<Rect> faces = (!extractAll && overrides.containsKey(name))
-                                ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image);
+                            List<Rect> faces = preparedPreview != null
+                                ? java.util.Collections.singletonList(new Rect(0,0,1,1))
+                                : ((!extractAll && overrides.containsKey(name))
+                                    ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image));
                             if (faces.isEmpty()) throw new IllegalArgumentException("No face detected");
                             File original = new File(name);
                             String originalName = original.getName();
