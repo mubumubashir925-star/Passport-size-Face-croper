@@ -22,6 +22,8 @@ public final class OutputPerspectiveEditor {
         try {
             BufferedImage source = ImageIO.read(original);
             if (source == null) throw new IllegalArgumentException("Cannot read output image");
+            final BufferedImage[] view = {source};
+            final int[] quarterTurns = {0};
             JDialog dialog = new JDialog(owner, "Four-corner perspective adjustment - " + output.getName(),
                 Dialog.ModalityType.APPLICATION_MODAL);
             double cropHeight = Math.min(source.getHeight() * .85, source.getWidth() * .85 * height / width);
@@ -64,8 +66,8 @@ public final class OutputPerspectiveEditor {
                         }
                         public void mouseDragged(MouseEvent e) {
                             if(moving<0) return;
-                            double nx=Math.max(0,Math.min(source.getWidth()-1,(e.getX()-ox)/scale));
-                            double ny=Math.max(0,Math.min(source.getHeight()-1,(e.getY()-oy)/scale));
+                            double nx=Math.max(0,Math.min(view[0].getWidth()-1,(e.getX()-ox)/scale));
+                            double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
                             if(perspective.isSelected()) {
                                 corners[moving][0]=nx;corners[moving][1]=ny;
                             } else {
@@ -87,12 +89,12 @@ public final class OutputPerspectiveEditor {
                 protected void paintComponent(Graphics g) {
                     super.paintComponent(g);
                     Graphics2D a=(Graphics2D)g.create();
-                    scale=Math.max(.01,Math.min((getWidth()-40.0)/source.getWidth(),
-                        (getHeight()-40.0)/source.getHeight()));
-                    ox=(getWidth()-source.getWidth()*scale)/2;
-                    oy=(getHeight()-source.getHeight()*scale)/2;
-                    a.drawImage(source,(int)ox,(int)oy,(int)(source.getWidth()*scale),
-                        (int)(source.getHeight()*scale),null);
+                    scale=Math.max(.01,Math.min((getWidth()-40.0)/view[0].getWidth(),
+                        (getHeight()-40.0)/view[0].getHeight()));
+                    ox=(getWidth()-view[0].getWidth()*scale)/2;
+                    oy=(getHeight()-view[0].getHeight()*scale)/2;
+                    a.drawImage(view[0],(int)ox,(int)oy,(int)(view[0].getWidth()*scale),
+                        (int)(view[0].getHeight()*scale),null);
                     a.setColor(Color.CYAN);a.setStroke(new BasicStroke(2));
                     for(int i=0;i<4;i++) {
                         int j=(i+1)%4;
@@ -104,10 +106,10 @@ public final class OutputPerspectiveEditor {
                         a.setColor(new Color(255, 193, 7, 160));
                         a.setStroke(new BasicStroke(1));
                         for(int k=1;k<3;k++) {
-                            int xx=(int)(ox+source.getWidth()*scale*k/3.0);
-                            int yy=(int)(oy+source.getHeight()*scale*k/3.0);
-                            a.drawLine(xx,(int)oy,xx,(int)(oy+source.getHeight()*scale));
-                            a.drawLine((int)ox,yy,(int)(ox+source.getWidth()*scale),yy);
+                            int xx=(int)(ox+view[0].getWidth()*scale*k/3.0);
+                            int yy=(int)(oy+view[0].getHeight()*scale*k/3.0);
+                            a.drawLine(xx,(int)oy,xx,(int)(oy+view[0].getHeight()*scale));
+                            a.drawLine((int)ox,yy,(int)(ox+view[0].getWidth()*scale),yy);
                         }
                     }
                     if(grid.isSelected()) {
@@ -137,6 +139,27 @@ public final class OutputPerspectiveEditor {
             JPanel bottom=new JPanel(new BorderLayout());
             JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
             options.add(perspective);options.add(grid);options.add(fullGrid);
+            JButton rotateLeft = new JButton("Rotate Left 90°");
+            JButton rotateRight = new JButton("Rotate Right 90°");
+            java.util.function.IntConsumer rotate = direction -> {
+                BufferedImage before = view[0];
+                BufferedImage after = new BufferedImage(before.getHeight(), before.getWidth(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = after.createGraphics();
+                if (direction > 0) { g.translate(after.getWidth(), 0); g.rotate(Math.PI / 2); }
+                else { g.translate(0, after.getHeight()); g.rotate(-Math.PI / 2); }
+                g.drawImage(before, 0, 0, null); g.dispose();
+                view[0] = after;
+                quarterTurns[0] = (quarterTurns[0] + (direction > 0 ? 1 : 3)) % 4;
+                double boxH = Math.min(after.getHeight() * .85, after.getWidth() * .85 * height / width);
+                double boxW = boxH * width / height;
+                double xx = (after.getWidth() - boxW) / 2, yy = (after.getHeight() - boxH) / 2;
+                corners[0] = new double[]{xx,yy}; corners[1] = new double[]{xx+boxW,yy};
+                corners[2] = new double[]{xx+boxW,yy+boxH}; corners[3] = new double[]{xx,yy+boxH};
+                canvas.repaint();
+            };
+            rotateLeft.addActionListener(e -> rotate.accept(-1));
+            rotateRight.addActionListener(e -> rotate.accept(1));
+            options.add(rotateLeft); options.add(rotateRight);
             grid.addActionListener(e->canvas.repaint());
             fullGrid.addActionListener(e->canvas.repaint());
             bottom.add(options,BorderLayout.NORTH);
@@ -155,6 +178,13 @@ public final class OutputPerspectiveEditor {
                 Mat matrix=null;
                 try {
                     if(input.empty()) throw new IllegalStateException("Unable to read output image");
+                    if (quarterTurns[0] != 0) {
+                        Mat rotated = new Mat();
+                        int rotation = quarterTurns[0] == 1 ? Core.ROTATE_90_CLOCKWISE :
+                            quarterTurns[0] == 2 ? Core.ROTATE_180 : Core.ROTATE_90_COUNTERCLOCKWISE;
+                        Core.rotate(input, rotated, rotation);
+                        input.release(); input = rotated;
+                    }
                     from.fromArray(new Point(corners[0][0],corners[0][1]),
                         new Point(corners[1][0],corners[1][1]),
                         new Point(corners[2][0],corners[2][1]),
