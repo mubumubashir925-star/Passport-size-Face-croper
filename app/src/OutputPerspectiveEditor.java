@@ -18,14 +18,17 @@ import org.opencv.imgproc.Imgproc;
 /** Edit an existing cropped output using four independently draggable corners. */
 public final class OutputPerspectiveEditor {
     private OutputPerspectiveEditor() {}
-    public static void open(Window owner, File output, int width, int height, Runnable onSaved) {
+    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved) {
         try {
-            BufferedImage source = ImageIO.read(output);
+            BufferedImage source = ImageIO.read(original);
             if (source == null) throw new IllegalArgumentException("Cannot read output image");
             JDialog dialog = new JDialog(owner, "Four-corner perspective adjustment - " + output.getName(),
                 Dialog.ModalityType.APPLICATION_MODAL);
-            double[][] corners = {{0,0},{source.getWidth()-1,0},
-                {source.getWidth()-1,source.getHeight()-1},{0,source.getHeight()-1}};
+            double cropHeight = Math.min(source.getHeight() * .85, source.getWidth() * .85 * height / width);
+            double cropWidth = cropHeight * width / height;
+            double x0 = (source.getWidth()-cropWidth)/2, y0=(source.getHeight()-cropHeight)/2;
+            double[][] corners = {{x0,y0},{x0+cropWidth,y0},
+                {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
@@ -73,18 +76,18 @@ public final class OutputPerspectiveEditor {
             dialog.setLayout(new BorderLayout(8,8));
             dialog.add(canvas,BorderLayout.CENTER);
             JPanel bottom=new JPanel(new BorderLayout());
-            bottom.add(new JLabel("Drag the four cyan corners. Save overwrites only the cropped output, never the original."),BorderLayout.NORTH);
+            bottom.add(new JLabel("Drag any corner freely on the FULL ORIGINAL photo. Save adjusts the preview; Start Cropping exports it."),BorderLayout.NORTH);
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.RIGHT));
             JButton reset=new JButton("Reset Corners");
             reset.addActionListener(e->{
-                corners[0]=new double[]{0,0};corners[1]=new double[]{source.getWidth()-1,0};
-                corners[2]=new double[]{source.getWidth()-1,source.getHeight()-1};
-                corners[3]=new double[]{0,source.getHeight()-1};canvas.repaint();
+                corners[0]=new double[]{x0,y0};corners[1]=new double[]{x0+cropWidth,y0};
+                corners[2]=new double[]{x0+cropWidth,y0+cropHeight};
+                corners[3]=new double[]{x0,y0+cropHeight};canvas.repaint();
             });
             JButton cancel=new JButton("Cancel");cancel.addActionListener(e->dialog.dispose());
             JButton save=new JButton("Save Adjusted Output");
             save.addActionListener(e->{
-                Mat input=Imgcodecs.imread(output.getAbsolutePath()), transformed=new Mat();
+                Mat input=Imgcodecs.imread(original.getAbsolutePath()), transformed=new Mat();
                 MatOfPoint2f from=new MatOfPoint2f(),to=new MatOfPoint2f();
                 Mat matrix=null;
                 try {
