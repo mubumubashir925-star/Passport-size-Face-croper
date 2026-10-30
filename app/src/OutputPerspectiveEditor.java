@@ -27,6 +27,21 @@ public final class OutputPerspectiveEditor {
             double cropHeight = Math.min(source.getHeight() * .85, source.getWidth() * .85 * height / width);
             double cropWidth = cropHeight * width / height;
             double x0 = (source.getWidth()-cropWidth)/2, y0=(source.getHeight()-cropHeight)/2;
+            try {
+                FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
+                Mat full=Imgcodecs.imread(original.getAbsolutePath());
+                try {
+                    java.util.List<Rect> faces=detector.detect(full);
+                    if(!faces.isEmpty()) {
+                        Rect face=faces.get(0);
+                        cropWidth=Math.min(source.getWidth(),face.width*2.15);
+                        cropHeight=Math.min(source.getHeight(),cropWidth*height/width);
+                        x0=Math.max(0,Math.min(source.getWidth()-cropWidth,face.x+face.width/2.0-cropWidth/2));
+                        y0=Math.max(0,Math.min(source.getHeight()-cropHeight,face.y-face.height*.55));
+                    }
+                } finally {full.release();}
+            } catch(Exception ignored) {}
+            final double initialX=x0, initialY=y0, initialW=cropWidth, initialH=cropHeight;
             double[][] corners = {{x0,y0},{x0+cropWidth,y0},
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
             JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners");
@@ -116,9 +131,9 @@ public final class OutputPerspectiveEditor {
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.RIGHT));
             JButton reset=new JButton("Reset Corners");
             reset.addActionListener(e->{
-                corners[0]=new double[]{x0,y0};corners[1]=new double[]{x0+cropWidth,y0};
-                corners[2]=new double[]{x0+cropWidth,y0+cropHeight};
-                corners[3]=new double[]{x0,y0+cropHeight};canvas.repaint();
+                corners[0]=new double[]{initialX,initialY};corners[1]=new double[]{initialX+initialW,initialY};
+                corners[2]=new double[]{initialX+initialW,initialY+initialH};
+                corners[3]=new double[]{initialX,initialY+initialH};canvas.repaint();
             });
             JButton cancel=new JButton("Cancel");cancel.addActionListener(e->dialog.dispose());
             JButton save=new JButton("Save Adjusted Output");
