@@ -829,9 +829,11 @@ public final class FaceCropPro {
     }
 
     private void editSelectedOutput() {
-        File target = selectedOutputFile();
+        String selectedPath = previewList.getSelectedValue();
+        if (selectedPath == null) selectedPath = fileList.getSelectedValue();
+        File target = selectedPath == null ? null : previewFiles.get(selectedPath);
         if (target == null || !target.isFile()) {
-            JOptionPane.showMessageDialog(frame, "Crop this image first.");
+            JOptionPane.showMessageDialog(frame, "Select a generated crop preview first.");
             return;
         }
         try {
@@ -839,12 +841,21 @@ public final class FaceCropPro {
             OutputPerspectiveEditor.open(frame, target,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
-                    refreshSelectedOutput();
-                    status.setText("Saved adjusted output: " + target.getName());
+                    refreshPreviewIcon(selectedPath, target);
+                    status.setText("Adjustment saved for final cropping: " + new File(selectedPath).getName());
                 });
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
         }
+    }
+
+    private void refreshPreviewIcon(String path, File target) {
+        try {
+            java.awt.image.BufferedImage img=javax.imageio.ImageIO.read(target);
+            if(img!=null) previewIcons.put(path,
+                new ImageIcon(img.getScaledInstance(112,144,Image.SCALE_FAST)));
+            previewList.repaint();
+        } catch(Exception ignored) {}
     }
 
     private void loadThumbnail(final String path) {
