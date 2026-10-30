@@ -89,6 +89,13 @@ public final class FolderPathDialog {
                 while ((line = reader.readLine()) != null) diagnostics.append(line).append("\\n");
             }
             int exit = process.waitFor();
+            String marker = "SELECTED_FOLDER=";
+            for (String line : diagnostics.toString().split("\\r?\\n")) {
+                if (line.startsWith(marker)) {
+                    File selectedFolder = new File(line.substring(marker.length()).trim());
+                    if (selectedFolder.isDirectory()) return selectedFolder;
+                }
+            }
             if (exit == 0) {
                 if (!resultFile.isFile()) return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
                 byte[] bytes = java.nio.file.Files.readAllBytes(resultFile.toPath());
