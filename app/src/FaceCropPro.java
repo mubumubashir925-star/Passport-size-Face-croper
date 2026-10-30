@@ -29,6 +29,10 @@ public final class FaceCropPro {
     private final java.util.Set<String> robotSeen = new java.util.HashSet<String>();
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
+    private final java.util.Map<String, ImageIcon> thumbnails = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
+    private final java.util.Set<String> thumbnailJobs = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
+    private final java.util.concurrent.ExecutorService thumbnailPool = java.util.concurrent.Executors.newFixedThreadPool(2);
+
     private final java.util.Map<String, org.opencv.core.Rect> manualCrops = new java.util.HashMap<String, org.opencv.core.Rect>();
     private final JCheckBox trimBorders = new JCheckBox("Remove scan borders", true);
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
