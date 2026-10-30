@@ -696,7 +696,13 @@ public final class FaceCropPro {
                                 ? java.util.Collections.singletonList(new Rect(0,0,1,1))
                                 : ((!extractAll && overrides.containsKey(name))
                                     ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image));
-                            if (faces.isEmpty()) throw new IllegalArgumentException("No face detected");
+                            if (faces.isEmpty() && !extractAll && !overrides.containsKey(name)) {
+                                // A missing preview should still get the same rotation fallback at export.
+                                cropped = engine.cropAutoOriented(image, outputWidth, outputHeight);
+                                if (cropped != null && !cropped.empty())
+                                    faces = java.util.Collections.singletonList(new Rect(0,0,1,1));
+                            }
+                            if (faces.isEmpty()) throw new IllegalArgumentException("No face detected at 0/90/180/270 degrees");
                             File original = new File(name);
                             String originalName = original.getName();
                             String base = originalName.replaceFirst("(?i)\\.[^.]+$", "");
@@ -724,7 +730,7 @@ public final class FaceCropPro {
                                     try {
                                         org.opencv.imgproc.Imgproc.resize(roi, cropped, new Size(outputWidth, outputHeight));
                                     } finally { roi.release(); }
-                                } else {
+                                } else if (cropped == null) {
                                     cropped = engine.cropAligned(image, faces.get(index), outputWidth, outputHeight);
                                 }
                                 try {
