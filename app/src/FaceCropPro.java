@@ -589,6 +589,7 @@ public final class FaceCropPro {
         final boolean extractAll = multipleFaces.isSelected();
         final boolean trim = trimBorders.isSelected();
         final java.util.Map<String, org.opencv.core.Rect> overrides = new java.util.HashMap<String, org.opencv.core.Rect>(manualCrops);
+        final java.util.Map<String, File> prepared = new java.util.HashMap<String, File>(previewFiles);
         final int outputWidth = ((Number)width.getValue()).intValue();
         final int outputHeight = ((Number)height.getValue()).intValue();
         final File model = new File("models/haarcascade_frontalface_alt2.xml");
@@ -623,6 +624,7 @@ public final class FaceCropPro {
                         Mat image = new Mat();
                         Mat cropped = null;
                         try {
+                            File preparedPreview = !extractAll ? prepared.get(name) : null;
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
                             if (trim && !overrides.containsKey(name)) {
@@ -650,7 +652,10 @@ public final class FaceCropPro {
                                 if (destination.getCanonicalPath().equals(original.getCanonicalPath()))
                                     throw new IllegalStateException("Output would overwrite the original image");
                                 // Existing output may be replaced; never overwrite the source photo.
-                                if (!extractAll && overrides.containsKey(name)) {
+                                if (preparedPreview != null && preparedPreview.isFile()) {
+                                    cropped = Imgcodecs.imread(preparedPreview.getAbsolutePath());
+                                    if (cropped.empty()) throw new IllegalStateException("Cannot read prepared crop");
+                                } else if (!extractAll && overrides.containsKey(name)) {
                                     org.opencv.core.Rect r = overrides.get(name);
                                     if (r.x < 0 || r.y < 0 || r.width <= 0 || r.height <= 0 ||
                                         r.x + r.width > image.cols() || r.y + r.height > image.rows())
@@ -831,7 +836,8 @@ public final class FaceCropPro {
     private void editSelectedOutput() {
         String selectedPath = previewList.getSelectedValue();
         if (selectedPath == null) selectedPath = fileList.getSelectedValue();
-        File target = selectedPath == null ? null : previewFiles.get(selectedPath);
+        final String previewKey = selectedPath;
+        File target = previewKey == null ? null : previewFiles.get(previewKey);
         if (target == null || !target.isFile()) {
             JOptionPane.showMessageDialog(frame, "Select a generated crop preview first.");
             return;
@@ -841,8 +847,8 @@ public final class FaceCropPro {
             OutputPerspectiveEditor.open(frame, target,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
-                    refreshPreviewIcon(selectedPath, target);
-                    status.setText("Adjustment saved for final cropping: " + new File(selectedPath).getName());
+                    refreshPreviewIcon(previewKey, target);
+                    status.setText("Adjustment saved for final cropping: " + new File(previewKey).getName());
                 });
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
