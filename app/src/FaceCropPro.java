@@ -211,11 +211,19 @@ public final class FaceCropPro {
                     new javax.swing.SwingWorker<java.util.List<String>, Void>() {
                         protected java.util.List<String> doInBackground() {
                             java.util.List<String> found = new java.util.ArrayList<String>();
-                            File[] images = folder.listFiles();
-                            if (images == null) throw new IllegalStateException("Cannot read selected folder");
-                            for (File image : images)
-                                if (image.isFile() && isPhoto(image.getName()))
-                                    found.add(image.getAbsolutePath());
+                            java.nio.file.Files.walkFileTree(folder.toPath(),
+                                new java.nio.file.SimpleFileVisitor<java.nio.file.Path>() {
+                                    public java.nio.file.FileVisitResult visitFile(java.nio.file.Path path,
+                                            java.nio.file.attribute.BasicFileAttributes attrs) {
+                                        if (attrs.isRegularFile() && isPhoto(path.getFileName().toString()))
+                                            found.add(path.toAbsolutePath().toString());
+                                        return java.nio.file.FileVisitResult.CONTINUE;
+                                    }
+                                    public java.nio.file.FileVisitResult visitFileFailed(java.nio.file.Path path,
+                                            java.io.IOException ex) {
+                                        return java.nio.file.FileVisitResult.CONTINUE;
+                                    }
+                                });
                             java.util.Collections.sort(found, String.CASE_INSENSITIVE_ORDER);
                             return found;
                         }
@@ -230,7 +238,7 @@ public final class FaceCropPro {
                                 updateCount();
                                 status.setText("Added " + added + " images from " + folder.getAbsolutePath());
                                 if (found.isEmpty()) JOptionPane.showMessageDialog(frame,
-                                    "No JPG, JPEG, PNG or BMP images found directly in this folder.");
+                                    "No JPG, JPEG, PNG or BMP images found in this folder or subfolders.");
                             } catch (Exception ex) {
                                 status.setText("Folder scan failed: " + ex.getMessage());
                                 JOptionPane.showMessageDialog(frame, ex.toString(), "Folder scan error", JOptionPane.ERROR_MESSAGE);
