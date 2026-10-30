@@ -153,7 +153,46 @@ public final class FaceCropPro {
         topControls.add(controls, BorderLayout.NORTH);
         topControls.add(folders, BorderLayout.SOUTH);
         center.add(topControls, BorderLayout.NORTH);
-        center.add(new JScrollPane(fileList), BorderLayout.CENTER);
+        fileList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
+        fileList.setVisibleRowCount(-1);
+        fileList.setFixedCellWidth(150);
+        fileList.setFixedCellHeight(175);
+        fileList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        fileList.setCellRenderer(new DefaultListCellRenderer() {
+            public Component getListCellRendererComponent(JList<?> list, Object value,
+                    int index, boolean selected, boolean focused) {
+                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, selected, focused);
+                String path = String.valueOf(value);
+                label.setIcon(thumbnails.get(path));
+                label.setText(new File(path).getName());
+                label.setHorizontalAlignment(SwingConstants.CENTER);
+                label.setHorizontalTextPosition(SwingConstants.CENTER);
+                label.setVerticalTextPosition(SwingConstants.BOTTOM);
+                label.setToolTipText(path);
+                if (!thumbnailJobs.contains(path)) loadThumbnail(path);
+                return label;
+            }
+        });
+        JPanel gallery = new JPanel(new BorderLayout());
+        JPanel galleryBar = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton selectAll = new JButton("Select All");
+        selectAll.addActionListener(e -> {
+            if (!files.isEmpty()) fileList.setSelectionInterval(0, files.size() - 1);
+        });
+        JButton removeSelected = new JButton("Remove Selected");
+        removeSelected.addActionListener(e -> {
+            for (String path : fileList.getSelectedValuesList()) {
+                files.removeElement(path);
+                manualCrops.remove(path);
+            }
+            updateCount();
+        });
+        galleryBar.add(new JLabel("Photo Gallery"));
+        galleryBar.add(selectAll);
+        galleryBar.add(removeSelected);
+        gallery.add(galleryBar, BorderLayout.NORTH);
+        gallery.add(new JScrollPane(fileList), BorderLayout.CENTER);
+        center.add(gallery, BorderLayout.CENTER);
         root.add(center, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
