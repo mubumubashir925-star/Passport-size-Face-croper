@@ -86,7 +86,7 @@ public final class FolderPathDialog {
             StringBuilder diagnostics = new StringBuilder();
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
-                while ((line = reader.readLine()) != null) diagnostics.append(line).append("\\n");
+                while ((line = reader.readLine()) != null) diagnostics.append(line).append((char)10);
             }
             int exit = process.waitFor();
             String marker = "SELECTED_FOLDER=";
