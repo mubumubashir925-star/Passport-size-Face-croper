@@ -89,7 +89,7 @@ public final class FolderPathDialog {
                 if (!resultFile.isFile()) return new File("INVALID_FOLDER_PICKER_CANCELLED_DO_NOT_CREATE");
                 byte[] bytes = java.nio.file.Files.readAllBytes(resultFile.toPath());
                 String selected = new String(bytes, java.nio.charset.StandardCharsets.UTF_16LE);
-                if (selected.startsWith("\\uFEFF")) selected = selected.substring(1);
+                if (!selected.isEmpty() && selected.charAt(0) == 65279) selected = selected.substring(1);
                 File folder = new File(selected.trim());
                 if (folder.isDirectory()) return folder;
                 throw new java.io.IOException("Selected folder not found: " + selected);
