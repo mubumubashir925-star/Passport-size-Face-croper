@@ -1,42 +1,60 @@
 import javax.swing.*;
+import javax.swing.filechooser.FileSystemView;
 import java.awt.*;
 import java.io.File;
 
-/** Paste a folder path or browse. Java 8 / Windows 7 compatible. */
+/** Explorer-style directory chooser with editable/pasteable folder path. */
 public final class FolderPathDialog {
     private FolderPathDialog() {}
     public static File choose(Component parent, String title, File initial) {
-        JTextField path = new JTextField(initial == null ? "" : initial.getAbsolutePath(), 36);
-        JButton browse = new JButton("Browse...");
-        browse.addActionListener(e -> {
-            JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle(title);
-            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            if (!path.getText().trim().isEmpty()) {
-                File current = new File(path.getText().trim());
-                chooser.setCurrentDirectory(current.isDirectory() ? current : current.getParentFile());
+        JFileChooser chooser = new JFileChooser(FileSystemView.getFileSystemView());
+        chooser.setDialogTitle(title);
+        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setApproveButtonText("Select Folder");
+        chooser.setPreferredSize(new Dimension(900, 570));
+        if (initial != null && initial.isDirectory()) chooser.setCurrentDirectory(initial);
+
+        JPanel accessory = new JPanel(new BorderLayout(4, 6));
+        accessory.setPreferredSize(new Dimension(260, 90));
+        accessory.add(new JLabel("Folder path (paste here):"), BorderLayout.NORTH);
+        JTextField path = new JTextField();
+        accessory.add(path, BorderLayout.CENTER);
+        JButton go = new JButton("Go to pasted path");
+        go.addActionListener(e -> {
+            File folder = parse(path.getText());
+            if (folder.isDirectory()) {
+                chooser.setCurrentDirectory(folder);
+                chooser.setSelectedFile(folder);
+            } else {
+                JOptionPane.showMessageDialog(chooser, "Folder not found:\n" + path.getText());
             }
-            if (chooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION)
-                path.setText(chooser.getSelectedFile().getAbsolutePath());
         });
-        JPanel panel = new JPanel(new BorderLayout(8, 8));
-        panel.add(new JLabel("Paste folder path (Ctrl+V) or browse:"), BorderLayout.NORTH);
-        panel.add(path, BorderLayout.CENTER);
-        panel.add(browse, BorderLayout.EAST);
-        while (true) {
-            if (JOptionPane.showConfirmDialog(parent, panel, title,
-                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE) != JOptionPane.OK_OPTION)
-                return null;
-            String entered = path.getText().trim();
-            if (entered.startsWith("\"") && entered.endsWith("\"") && entered.length() > 1)
-                entered = entered.substring(1, entered.length() - 1);
-            File folder = new File(entered);
-            if (entered.isEmpty() || !folder.isDirectory()) {
-                JOptionPane.showMessageDialog(parent, "Folder does not exist:\n" + entered,
-                    "Invalid folder", JOptionPane.WARNING_MESSAGE);
-                continue;
-            }
-            return folder;
+        accessory.add(go, BorderLayout.SOUTH);
+        chooser.setAccessory(accessory);
+        chooser.addPropertyChangeListener(JFileChooser.DIRECTORY_CHANGED_PROPERTY, e -> {
+            File current = chooser.getCurrentDirectory();
+            if (current != null) path.setText(current.getAbsolutePath());
+        });
+        if (chooser.getCurrentDirectory() != null)
+            path.setText(chooser.getCurrentDirectory().getAbsolutePath());
+
+        while (chooser.showOpenDialog(parent) == JFileChooser.APPROVE_OPTION) {
+            File typed = parse(path.getText());
+            File selected = chooser.getSelectedFile();
+            // Explicitly pasted path takes precedence when it differs from browsing location.
+            File chosen = typed.isDirectory() && (selected == null ||
+                !typed.equals(chooser.getCurrentDirectory())) ? typed : selected;
+            if (chosen != null && chosen.isDirectory()) return chosen;
+            JOptionPane.showMessageDialog(parent, "Please select an existing folder.",
+                "Invalid folder", JOptionPane.WARNING_MESSAGE);
         }
+        return null;
+    }
+    private static File parse(String raw) {
+        String s = raw.trim();
+        if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\""))
+            s = s.substring(1, s.length() - 1);
+        return new File(s);
     }
 }
