@@ -187,11 +187,17 @@ public final class FaceCropPro {
         }
     }
 
+    private static boolean isPhoto(String name) {
+        String lower = name.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
+            lower.endsWith(".png") || lower.endsWith(".bmp");
+    }
+
     private void chooseInputFolder() {
         File folder = FolderPathDialog.choose(frame, "Choose input photo folder", null);
         if (folder == null) return;
         File[] images = folder.listFiles(f -> f.isFile() &&
-            f.getName().toLowerCase(java.util.Locale.ROOT).matches(".*\\\\.(jpg|jpeg|png|bmp)"));
+            isPhoto(f.getName()));
         if (images == null) {
             JOptionPane.showMessageDialog(frame, "Cannot read this folder.");
             return;
