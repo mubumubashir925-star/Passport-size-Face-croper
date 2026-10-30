@@ -684,6 +684,63 @@ public final class FaceCropPro {
         worker.execute();
     }
 
+    private File selectedOutputFile() {
+        String input = fileList.getSelectedValue();
+        String folder = outputPath.getText().trim();
+        if (input == null || folder.isEmpty()) return null;
+        return new File(folder, new File(input).getName());
+    }
+
+    private void refreshSelectedOutput() {
+        final File target = selectedOutputFile();
+        if (target == null || !target.isFile()) {
+            outputPreview.setIcon(null);
+            outputPreview.setText("Output not saved yet. Run Start Cropping first.");
+            editOutput.setEnabled(false);
+            return;
+        }
+        editOutput.setEnabled(true);
+        outputPreview.setText("Loading output...");
+        new SwingWorker<ImageIcon, Void>() {
+            protected ImageIcon doInBackground() throws Exception {
+                java.awt.image.BufferedImage image = javax.imageio.ImageIO.read(target);
+                if (image == null) return null;
+                double scale = Math.min(360.0 / image.getWidth(), 440.0 / image.getHeight());
+                return new ImageIcon(image.getScaledInstance(
+                    Math.max(1,(int)(image.getWidth()*scale)),
+                    Math.max(1,(int)(image.getHeight()*scale)), Image.SCALE_SMOOTH));
+            }
+            protected void done() {
+                if (!target.equals(selectedOutputFile())) return;
+                try {
+                    outputPreview.setIcon(get());
+                    outputPreview.setText(outputPreview.getIcon() == null ? "Unsupported output" : "");
+                } catch (Exception ex) {
+                    outputPreview.setText("Could not read output");
+                }
+            }
+        }.execute();
+    }
+
+    private void editSelectedOutput() {
+        File target = selectedOutputFile();
+        if (target == null || !target.isFile()) {
+            JOptionPane.showMessageDialog(frame, "Crop this image first.");
+            return;
+        }
+        try {
+            ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+            OutputPerspectiveEditor.open(frame, target,
+                ((Number)width.getValue()).intValue(),
+                ((Number)height.getValue()).intValue(), () -> {
+                    refreshSelectedOutput();
+                    status.setText("Saved adjusted output: " + target.getName());
+                });
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void loadThumbnail(final String path) {
         if (!thumbnailJobs.add(path)) return;
         thumbnailPool.execute(() -> {
