@@ -353,9 +353,12 @@ public final class FaceCropPro {
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
                             if (trim && !overrides.containsKey(name)) {
-                                Mat clean = PhotoBorderTrim.trim(image);
-                                image.release();
-                                image = clean;
+                                Mat rectified = PerspectivePhotoTrim.trim(image);
+                                try {
+                                    Mat clean = PhotoBorderTrim.trim(rectified);
+                                    image.release();
+                                    image = clean;
+                                } finally { rectified.release(); }
                             }
                             List<Rect> faces = (!extractAll && overrides.containsKey(name))
                                 ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image);
