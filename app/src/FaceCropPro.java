@@ -236,16 +236,10 @@ public final class FaceCropPro {
             status.setText("Robot stopped");
             return;
         }
-        JFileChooser inputChooser = new JFileChooser();
-        inputChooser.setDialogTitle("Select folder to watch");
-        inputChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        if (inputChooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return;
-        File input = inputChooser.getSelectedFile();
-        JFileChooser outputChooser = new JFileChooser();
-        outputChooser.setDialogTitle("Select robot output folder");
-        outputChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        if (outputChooser.showOpenDialog(frame) != JFileChooser.APPROVE_OPTION) return;
-        robotOutput = outputChooser.getSelectedFile();
+        File input = FolderPathDialog.choose(frame, "Robot input folder", null);
+        if (input == null) return;
+        robotOutput = FolderPathDialog.choose(frame, "Robot output folder", null);
+        if (robotOutput == null) return;
         try {
             if (input.getCanonicalFile().equals(robotOutput.getCanonicalFile()))
                 throw new IllegalArgumentException("Input and output folders must differ");
@@ -277,11 +271,9 @@ public final class FaceCropPro {
             JOptionPane.showMessageDialog(frame, "Add photos first.");
             return;
         }
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Choose output folder");
-        chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        if (chooser.showSaveDialog(frame) != JFileChooser.APPROVE_OPTION) return;
-        startCroppingTo(chooser.getSelectedFile());
+        File folder = FolderPathDialog.choose(frame, "Choose output folder", null);
+        if (folder == null) return;
+        startCroppingTo(folder);
     }
 
     private void startCroppingTo(final File output) {
