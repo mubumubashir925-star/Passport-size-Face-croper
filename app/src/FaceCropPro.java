@@ -684,20 +684,24 @@ public final class FaceCropPro {
                             File preparedPreview = !extractAll ? prepared.get(name) : null;
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
-                            if (preparedPreview == null && trim && !overrides.containsKey(name)
-                                && engine.detect(image).isEmpty()) {
+                            if (preparedPreview == null && !extractAll && !overrides.containsKey(name)) {
+                                cropped = engine.cropAutoOriented(image, outputWidth, outputHeight);
+                            }
+                            if (preparedPreview == null && cropped == null && trim &&
+                                !overrides.containsKey(name)) {
                                 Mat rectified = PerspectivePhotoTrim.trim(image);
                                 try {
                                     Mat clean = PhotoBorderTrim.trim(rectified);
                                     image.release();
                                     image = clean;
                                 } finally { rectified.release(); }
+                                if (!extractAll) cropped = engine.cropAutoOriented(image, outputWidth, outputHeight);
                             }
                             List<Rect> faces = preparedPreview != null
                                 ? java.util.Collections.singletonList(new Rect(0,0,1,1))
                                 : ((!extractAll && overrides.containsKey(name))
                                     ? java.util.Collections.singletonList(overrides.get(name)) : engine.detect(image));
-                            if (faces.isEmpty() && !extractAll && !overrides.containsKey(name)) {
+                            if (faces.isEmpty() && cropped == null && !extractAll && !overrides.containsKey(name)) {
                                 // A missing preview should still get the same rotation fallback at export.
                                 cropped = engine.cropAutoOriented(image, outputWidth, outputHeight);
                                 if (cropped != null && !cropped.empty())
@@ -820,18 +824,17 @@ public final class FaceCropPro {
                     Mat image=Imgcodecs.imread(path), crop=null;
                     try {
                         if(image.empty()) continue;
-                        // Printed-photo border correction is only safe when no face is
-                        // already detected in the original. Avoid false rectangle
-                        // matches on clothing/background that cut off heads.
-                        if(trim && engine.detect(image).isEmpty()) {
+                        // Try all orientations before any border correction.
+                        // This prevents sideways faces from being mistaken for scan borders.
+                        crop=engine.cropAutoOriented(image,outW,outH);
+                        if ((crop==null || crop.empty()) && trim) {
                             Mat straight=PerspectivePhotoTrim.trim(image);
                             try {
                                 Mat cleaned=PhotoBorderTrim.trim(straight);
-                                image.release();
-                                image=cleaned;
+                                try { crop=engine.cropAutoOriented(cleaned,outW,outH); }
+                                finally { cleaned.release(); }
                             } finally { straight.release(); }
                         }
-                        crop=engine.cropAutoOriented(image,outW,outH);
                         if(crop==null || crop.empty()) continue;
                         File target=new File(previewDirectory,String.format("%06d.jpg",i));
                         if(Imgcodecs.imwrite(target.getAbsolutePath(),crop)) {
