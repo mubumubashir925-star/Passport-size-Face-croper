@@ -10,7 +10,8 @@ public final class FolderPathDialog {
     private FolderPathDialog() {}
     public static File choose(Component parent, String title, File initial) {
         File nativeResult = nativeFolder(parent, title);
-        if (nativeResult != null) return nativeResult.isDirectory() ? nativeResult : null;
+        if (nativeResult != null && nativeResult.isDirectory()) return nativeResult;
+        if (nativeResult != null) return null;
         if (!SwingUtilities.isEventDispatchThread()) {
             final File[] result = new File[1];
             try { SwingUtilities.invokeAndWait(() -> result[0] = javaFolder(parent, title, initial)); }
