@@ -811,9 +811,8 @@ public final class FaceCropPro {
                                 image=cleaned;
                             } finally { straight.release(); }
                         }
-                        java.util.List<Rect> faces=engine.detect(image);
-                        if(faces.isEmpty()) continue;
-                        crop=engine.cropAligned(image,faces.get(0),outW,outH);
+                        crop=engine.cropAutoOriented(image,outW,outH);
+                        if(crop==null || crop.empty()) continue;
                         File target=new File(previewDirectory,String.format("%06d.jpg",i));
                         if(Imgcodecs.imwrite(target.getAbsolutePath(),crop)) {
                             previewFiles.put(path,target);
