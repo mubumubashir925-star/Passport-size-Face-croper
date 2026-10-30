@@ -1,4 +1,5 @@
 $ErrorActionPreference = 'Stop'
+$outputFile = if ($args.Count -gt 0) { $args[0] } else { $null }
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
@@ -50,4 +51,7 @@ public static class NativeFolderPicker {
 }
 '@
 $result = [NativeFolderPicker]::Pick('Select Folder')
-if ($result) { [Console]::WriteLine($result) }
+if ($result) {
+    if ($outputFile) { [System.IO.File]::WriteAllText($outputFile, $result, [System.Text.Encoding]::Unicode) }
+    else { [Console]::WriteLine($result) }
+}
