@@ -237,7 +237,10 @@ public final class FaceCropPro {
         previewList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selected = previewList.getSelectedValue();
-                if (selected != null) fileList.setSelectedValue(selected,true);
+                if (selected != null) {
+                    fileList.setSelectedValue(selected,true);
+                    editOutput.setEnabled(previewFiles.containsKey(selected));
+                }
             }
         });
         outputPanel.add(new JScrollPane(previewList), BorderLayout.CENTER);
@@ -816,7 +819,8 @@ public final class FaceCropPro {
         if (target == null || !target.isFile()) {
             outputPreview.setIcon(null);
             outputPreview.setText("Output not saved yet. Run Start Cropping first.");
-            editOutput.setEnabled(false);
+            editOutput.setEnabled(previewList.getSelectedValue() != null &&
+                previewFiles.containsKey(previewList.getSelectedValue()));
             return;
         }
         editOutput.setEnabled(!previewFiles.isEmpty());
@@ -853,7 +857,7 @@ public final class FaceCropPro {
         }
         try {
             ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
-            OutputPerspectiveEditor.open(frame, target,
+            OutputPerspectiveEditor.open(frame, new File(previewKey), target,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
                     refreshPreviewIcon(previewKey, target);
