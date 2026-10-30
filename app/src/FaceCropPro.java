@@ -241,6 +241,7 @@ public final class FaceCropPro {
             }
         });
         outputPanel.add(new JScrollPane(previewList), BorderLayout.CENTER);
+        editOutput.setEnabled(false);
         JPanel outputButtons = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton refreshOutput = new JButton("Refresh Output");
         refreshOutput.addActionListener(e -> refreshSelectedOutput());
@@ -591,6 +592,12 @@ public final class FaceCropPro {
         final boolean trim = trimBorders.isSelected();
         final java.util.Map<String, org.opencv.core.Rect> overrides = new java.util.HashMap<String, org.opencv.core.Rect>(manualCrops);
         final java.util.Map<String, File> prepared = new java.util.HashMap<String, File>(previewFiles);
+        if (previewModel.size() < files.size()) {
+            int answer = JOptionPane.showConfirmDialog(frame,
+                "Only " + previewModel.size() + " of " + files.size() + " images have previews. Continue?",
+                "Preview check", JOptionPane.YES_NO_OPTION);
+            if (answer != JOptionPane.YES_OPTION) return;
+        }
         final int outputWidth = ((Number)width.getValue()).intValue();
         final int outputHeight = ((Number)height.getValue()).intValue();
         final File model = new File("models/haarcascade_frontalface_alt2.xml");
@@ -785,6 +792,7 @@ public final class FaceCropPro {
                             previewIcons.put(path,new ImageIcon(scaled));
                         }
                         previewModel.addElement(path);
+                        editOutput.setEnabled(true);
                     } catch(Exception ignored) {}
                 }
                 status.setText("Generated "+previewModel.size()+" / "+paths.size()+" crop previews");
