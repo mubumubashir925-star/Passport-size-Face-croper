@@ -46,6 +46,7 @@ public final class OutputPerspectiveEditor {
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
             JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners");
             JCheckBox grid = new JCheckBox("Show 3 x 3 grid");
+            JCheckBox fullGrid = new JCheckBox("Grid across full image");
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
@@ -99,6 +100,16 @@ public final class OutputPerspectiveEditor {
                         a.drawLine(x,y,(int)(ox+corners[j][0]*scale),(int)(oy+corners[j][1]*scale));
                         a.fillOval(x-7,y-7,14,14);
                     }
+                    if(fullGrid.isSelected()) {
+                        a.setColor(new Color(255, 193, 7, 160));
+                        a.setStroke(new BasicStroke(1));
+                        for(int k=1;k<3;k++) {
+                            int xx=(int)(ox+source.getWidth()*scale*k/3.0);
+                            int yy=(int)(oy+source.getHeight()*scale*k/3.0);
+                            a.drawLine(xx,(int)oy,xx,(int)(oy+source.getHeight()*scale));
+                            a.drawLine((int)ox,yy,(int)(ox+source.getWidth()*scale),yy);
+                        }
+                    }
                     if(grid.isSelected()) {
                         a.setColor(new Color(0,255,255,140));
                         a.setStroke(new BasicStroke(1));
@@ -125,8 +136,9 @@ public final class OutputPerspectiveEditor {
             dialog.add(canvas,BorderLayout.CENTER);
             JPanel bottom=new JPanel(new BorderLayout());
             JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
-            options.add(perspective);options.add(grid);
+            options.add(perspective);options.add(grid);options.add(fullGrid);
             grid.addActionListener(e->canvas.repaint());
+            fullGrid.addActionListener(e->canvas.repaint());
             bottom.add(options,BorderLayout.NORTH);
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.RIGHT));
             JButton reset=new JButton("Reset Corners");
