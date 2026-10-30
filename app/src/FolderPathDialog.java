@@ -14,6 +14,18 @@ public final class FolderPathDialog {
         if (nativeResult != null) return javaFolderOnEdt(parent, title, initial);
         return javaFolderOnEdt(parent, title, initial);
     }
+    /** Alternative native Windows file picker: choose an image in the target folder. */
+    public static File chooseByFile(Component parent, String title, File initial) {
+        java.awt.Window window=SwingUtilities.getWindowAncestor(parent);
+        java.awt.Frame owner=window instanceof java.awt.Frame ? (java.awt.Frame)window : null;
+        java.awt.FileDialog picker=new java.awt.FileDialog(owner,
+            title+" - select any existing file inside the folder",java.awt.FileDialog.LOAD);
+        if(initial!=null && initial.isDirectory()) picker.setDirectory(initial.getAbsolutePath());
+        picker.setVisible(true);
+        if(picker.getFile()==null) return null;
+        File selected=new File(picker.getDirectory(),picker.getFile());
+        return selected.getParentFile();
+    }
     private static File javaFolderOnEdt(Component parent, String title, File initial) {
         if (!SwingUtilities.isEventDispatchThread()) {
             final File[] result = new File[1];
