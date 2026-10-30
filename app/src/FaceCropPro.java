@@ -29,7 +29,13 @@ public final class FaceCropPro {
     private final java.util.Set<String> robotSeen = new java.util.HashSet<String>();
     private final java.util.List<String> failedFiles = new java.util.ArrayList<String>();
     private final JList<String> fileList = new JList<String>(files);
-    private final JLabel outputPreview = new JLabel("Output preview", SwingConstants.CENTER);
+    private final JLabel outputPreview = new JLabel("Select an output preview thumbnail", SwingConstants.CENTER);
+    private final DefaultListModel<String> previewModel = new DefaultListModel<String>();
+    private final JList<String> previewList = new JList<String>(previewModel);
+    private final java.util.Map<String, File> previewFiles = new java.util.concurrent.ConcurrentHashMap<String, File>();
+    private final java.util.Map<String, ImageIcon> previewIcons = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
+    private volatile int previewGeneration = 0;
+    private File previewDirectory;
     private final JButton editOutput = new JButton("Adjust 4 Corners & Save");
     private final java.util.Map<String, ImageIcon> thumbnails = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
     private final java.util.Set<String> thumbnailJobs = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
@@ -211,7 +217,30 @@ public final class FaceCropPro {
         gallery.add(new JScrollPane(fileList), BorderLayout.CENTER);
         JPanel outputPanel = new JPanel(new BorderLayout(6, 6));
         outputPanel.setBorder(BorderFactory.createTitledBorder("Output Preview"));
-        outputPanel.add(new JScrollPane(outputPreview), BorderLayout.CENTER);
+        previewList.setLayoutOrientation(JList.HORIZONTAL_WRAP);
+        previewList.setVisibleRowCount(-1);
+        previewList.setFixedCellWidth(145);
+        previewList.setFixedCellHeight(175);
+        previewList.setCellRenderer(new DefaultListCellRenderer() {
+            public Component getListCellRendererComponent(JList<?> list, Object value,
+                    int index, boolean selected, boolean focused) {
+                JLabel label = (JLabel)super.getListCellRendererComponent(list,value,index,selected,focused);
+                String path = String.valueOf(value);
+                label.setIcon(previewIcons.get(path));
+                label.setText(new File(path).getName());
+                label.setHorizontalAlignment(SwingConstants.CENTER);
+                label.setHorizontalTextPosition(SwingConstants.CENTER);
+                label.setVerticalTextPosition(SwingConstants.BOTTOM);
+                return label;
+            }
+        });
+        previewList.addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                String selected = previewList.getSelectedValue();
+                if (selected != null) fileList.setSelectedValue(selected,true);
+            }
+        });
+        outputPanel.add(new JScrollPane(previewList), BorderLayout.CENTER);
         JPanel outputButtons = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton refreshOutput = new JButton("Refresh Output");
         refreshOutput.addActionListener(e -> refreshSelectedOutput());
