@@ -719,6 +719,77 @@ public final class FaceCropPro {
         worker.execute();
     }
 
+    private void generateCropPreviews() {
+        if (files.isEmpty()) return;
+        final int generation = ++previewGeneration;
+        final java.util.List<String> paths = new java.util.ArrayList<String>();
+        for (int i=0;i<files.size();i++) paths.add(files.get(i));
+        final int outW=((Number)width.getValue()).intValue();
+        final int outH=((Number)height.getValue()).intValue();
+        final boolean trim=trimBorders.isSelected();
+        previewModel.clear();
+        previewFiles.clear();
+        previewIcons.clear();
+        status.setText("Preparing " + paths.size() + " crop previews...");
+        new SwingWorker<Void,String>() {
+            protected Void doInBackground() throws Exception {
+                ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+                FaceCropEngine engine=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
+                previewDirectory=java.nio.file.Files.createTempDirectory("facecrop-previews-").toFile();
+                int i=0;
+                for (String path:paths) {
+                    if (generation!=previewGeneration) break;
+                    Mat image=Imgcodecs.imread(path), crop=null;
+                    try {
+                        if(image.empty()) continue;
+                        if(trim) {
+                            Mat straight=PerspectivePhotoTrim.trim(image);
+                            try {
+                                Mat cleaned=PhotoBorderTrim.trim(straight);
+                                image.release();
+                                image=cleaned;
+                            } finally { straight.release(); }
+                        }
+                        java.util.List<Rect> faces=engine.detect(image);
+                        if(faces.isEmpty()) continue;
+                        crop=engine.cropAligned(image,faces.get(0),outW,outH);
+                        File target=new File(previewDirectory,String.format("%06d.jpg",i));
+                        if(Imgcodecs.imwrite(target.getAbsolutePath(),crop)) {
+                            previewFiles.put(path,target);
+                            publish(path);
+                        }
+                    } catch(Exception ignored) {
+                    } finally {
+                        image.release();
+                        if(crop!=null) crop.release();
+                    }
+                    i++;
+                }
+                return null;
+            }
+            protected void process(java.util.List<String> items) {
+                if(generation!=previewGeneration) return;
+                for(String path:items) {
+                    File target=previewFiles.get(path);
+                    if(target==null) continue;
+                    try {
+                        java.awt.image.BufferedImage img=javax.imageio.ImageIO.read(target);
+                        if(img!=null) {
+                            Image scaled=img.getScaledInstance(112,144,Image.SCALE_FAST);
+                            previewIcons.put(path,new ImageIcon(scaled));
+                        }
+                        previewModel.addElement(path);
+                    } catch(Exception ignored) {}
+                }
+                status.setText("Generated "+previewModel.size()+" / "+paths.size()+" crop previews");
+            }
+            protected void done() {
+                if(generation==previewGeneration)
+                    status.setText("Crop previews ready: "+previewModel.size()+" / "+paths.size());
+            }
+        }.execute();
+    }
+
     private File selectedOutputFile() {
         String input = fileList.getSelectedValue();
         String folder = outputPath.getText().trim();
