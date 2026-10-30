@@ -95,11 +95,11 @@ public final class FaceCropEngine {
         if (face == null || imageW <= 0 || imageH <= 0 || ratio <= 0)
             throw new IllegalArgumentException("Invalid crop inputs");
         double centerX = face.x + face.width / 2.0;
-        double top = face.y - 0.55 * face.height;
-        double bottom = face.y + 2.75 * face.height;
+        double top = face.y - 0.42 * face.height;
+        double bottom = face.y + 2.10 * face.height;
         double height = bottom - top;
         double width = height * ratio;
-        if (width < face.width * 1.75) {
+        if (width < face.width * 1.55) {
             width = face.width * 1.75;
             height = width / ratio;
         }
