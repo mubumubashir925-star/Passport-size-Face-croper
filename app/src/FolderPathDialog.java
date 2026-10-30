@@ -69,7 +69,7 @@ public final class FolderPathDialog {
                 while ((line = reader.readLine()) != null)
                     if (new File(line.trim()).isDirectory()) selected = line.trim();
             }
-            if (process.waitFor() == 0) return selected == null ? new File("") : new File(selected);
+            if (process.waitFor() == 0) return selected == null ? new File("\\?\\INVALID_FOLDER_PICKER_CANCELLED") : new File(selected);
         } catch (Exception ignored) {
             // Fall back to the Java directory chooser when PowerShell is unavailable.
         }
