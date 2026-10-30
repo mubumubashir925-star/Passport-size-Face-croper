@@ -101,10 +101,13 @@ public final class FaceCropPro {
         });
         checkEngine.addActionListener(e -> checkEngine());
         toolbar.add(checkEngine);
-        toolbar.add(add);
-        toolbar.add(addFolder);
         toolbar.add(clear);
-        toolbar.add(preview);
+        process.setFont(process.getFont().deriveFont(Font.BOLD, 17f));
+        process.setBackground(new Color(24, 126, 79));
+        process.setForeground(Color.WHITE);
+        process.setOpaque(true);
+        process.setFocusPainted(false);
+        process.setPreferredSize(new Dimension(195, 43));
         toolbar.add(process);
         cancel.setEnabled(false);
         retry.setEnabled(false);
@@ -119,7 +122,6 @@ public final class FaceCropPro {
         toolbar.add(cancel);
         toolbar.add(retry);
         robotToggle.addActionListener(e -> toggleRobot());
-        toolbar.add(robotToggle);
         JPanel options = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 4));
         options.add(multipleFaces);
         options.add(trimBorders);
@@ -145,42 +147,18 @@ public final class FaceCropPro {
         inputRow.add(inputPath, BorderLayout.CENTER);
         JButton inputBrowse = new JButton("Browse Input");
         inputBrowse.addActionListener(e -> chooseInputFolder());
-        JPanel inputActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
-        JButton loadInput = new JButton("Load Path");
-        loadInput.addActionListener(e -> loadPastedInput());
         inputPath.addActionListener(e -> loadPastedInput());
-        inputActions.add(loadInput);
-        inputActions.add(inputBrowse);
-        JButton inputFilePicker=new JButton("File Picker");
-        inputFilePicker.setToolTipText("Choose any image file; its parent folder is loaded");
-        inputFilePicker.addActionListener(e -> {
-            File folder=FolderPathDialog.chooseByFile(frame,"Input folder",null);
-            if(folder!=null && folder.isDirectory()) {
-                inputPath.setText(folder.getAbsolutePath());
-                loadPastedInput();
-            }
-        });
-        inputActions.add(inputFilePicker);
-        inputRow.add(inputActions, BorderLayout.EAST);
+        inputRow.add(new JLabel("Paste path and press Enter to load images",SwingConstants.RIGHT), BorderLayout.EAST);
         JPanel outputRow = new JPanel(new BorderLayout(6, 0));
         outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
-        outputPath.setToolTipText("Paste an output folder path or use Browse");
-        outputRow.add(outputPath, BorderLayout.CENTER);
-        JButton outputBrowse = new JButton("Browse Output");
-        outputBrowse.addActionListener(e -> chooseOutputFolder());
-        JPanel outputActions=new JPanel(new FlowLayout(FlowLayout.RIGHT,2,0));
-        JButton outputFilePicker=new JButton("File Picker");
-        outputFilePicker.setToolTipText("Choose any existing file inside the desired output folder");
-        outputFilePicker.addActionListener(e -> {
-            File folder=FolderPathDialog.chooseByFile(frame,"Output folder",null);
-            if(folder!=null && folder.isDirectory()) {
-                outputPath.setText(folder.getAbsolutePath());
-                status.setText("Output folder: "+folder.getAbsolutePath());
-            }
+        outputPath.setToolTipText("Paste an output folder path and press Enter");
+        outputPath.addActionListener(e -> {
+            File folder=new File(outputPath.getText().trim().replace("\\\"",""));
+            if(folder.isDirectory()) status.setText("Output folder ready: "+folder.getAbsolutePath());
+            else status.setText("Output folder does not exist: "+folder.getAbsolutePath());
         });
-        outputActions.add(outputBrowse);
-        outputActions.add(outputFilePicker);
-        outputRow.add(outputActions, BorderLayout.EAST);
+        outputRow.add(outputPath, BorderLayout.CENTER);
+        outputRow.add(new JLabel("Paste path and press Enter",SwingConstants.RIGHT),BorderLayout.EAST);
         folders.add(inputRow);
         folders.add(outputRow);
         JPanel topControls = new JPanel(new BorderLayout(4, 4));
