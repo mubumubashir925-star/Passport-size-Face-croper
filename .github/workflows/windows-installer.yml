@@ -12,6 +12,7 @@ on:
     paths:
       - 'app/src/**'
       - 'installer.iss'
+      - 'generate-icon.ps1'
       - 'launch.vbs'
       - 'build-installer.bat'
       - '.github/workflows/windows-installer.yml'
@@ -68,6 +69,9 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
+      - name: Generate desktop and installer icon
+        shell: pwsh
+        run: ./generate-icon.ps1
       - name: Package installer
         shell: pwsh
         run: |
