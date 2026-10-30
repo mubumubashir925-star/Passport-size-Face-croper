@@ -158,6 +158,17 @@ public final class FaceCropPro {
         fileList.setFixedCellWidth(150);
         fileList.setFixedCellHeight(175);
         fileList.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        fileList.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                    int index = fileList.locationToIndex(e.getPoint());
+                    if (index >= 0 && fileList.getCellBounds(index, index).contains(e.getPoint())) {
+                        fileList.setSelectedIndex(index);
+                        previewSelected();
+                    }
+                }
+            }
+        });
         fileList.setCellRenderer(new DefaultListCellRenderer() {
             public Component getListCellRendererComponent(JList<?> list, Object value,
                     int index, boolean selected, boolean focused) {
