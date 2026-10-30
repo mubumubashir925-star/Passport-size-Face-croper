@@ -684,7 +684,8 @@ public final class FaceCropPro {
                             File preparedPreview = !extractAll ? prepared.get(name) : null;
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
-                            if (preparedPreview == null && trim && !overrides.containsKey(name)) {
+                            if (preparedPreview == null && trim && !overrides.containsKey(name)
+                                && engine.detect(image).isEmpty()) {
                                 Mat rectified = PerspectivePhotoTrim.trim(image);
                                 try {
                                     Mat clean = PhotoBorderTrim.trim(rectified);
@@ -819,7 +820,10 @@ public final class FaceCropPro {
                     Mat image=Imgcodecs.imread(path), crop=null;
                     try {
                         if(image.empty()) continue;
-                        if(trim) {
+                        // Printed-photo border correction is only safe when no face is
+                        // already detected in the original. Avoid false rectangle
+                        // matches on clothing/background that cut off heads.
+                        if(trim && engine.detect(image).isEmpty()) {
                             Mat straight=PerspectivePhotoTrim.trim(image);
                             try {
                                 Mat cleaned=PhotoBorderTrim.trim(straight);
