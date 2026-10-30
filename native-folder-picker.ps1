@@ -54,5 +54,4 @@ $result = [NativeFolderPicker]::Pick('Select Folder')
 if ($result) {
     if ($outputFile) { [System.IO.File]::WriteAllText($outputFile, $result, [System.Text.Encoding]::Unicode) }
     [Console]::WriteLine('SELECTED_FOLDER=' + $result)
-    else { [Console]::WriteLine($result) }
 }
