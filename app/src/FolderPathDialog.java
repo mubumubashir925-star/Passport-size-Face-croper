@@ -2,11 +2,15 @@ import javax.swing.*;
 import javax.swing.filechooser.FileSystemView;
 import java.awt.*;
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
 
 /** Explorer-style directory chooser with editable/pasteable folder path. */
 public final class FolderPathDialog {
     private FolderPathDialog() {}
     public static File choose(Component parent, String title, File initial) {
+        File nativeResult = nativeFolder(parent, title);
+        if (nativeResult != null) return nativeResult;
         JFileChooser chooser = new JFileChooser(FileSystemView.getFileSystemView());
         chooser.setDialogTitle(title);
         chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -51,6 +55,27 @@ public final class FolderPathDialog {
         }
         return null;
     }
+    private static File nativeFolder(Component parent, String title) {
+        if (!System.getProperty("os.name", "").toLowerCase().contains("windows")) return null;
+        File script = new File("native-folder-picker.ps1");
+        if (!script.isFile()) return null;
+        try {
+            Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-STA",
+                "-ExecutionPolicy", "Bypass", "-File", script.getAbsolutePath())
+                .redirectErrorStream(true).start();
+            String selected = null;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null)
+                    if (new File(line.trim()).isDirectory()) selected = line.trim();
+            }
+            if (process.waitFor() == 0 && selected != null) return new File(selected);
+        } catch (Exception ignored) {
+            // Fall back to the Java directory chooser when PowerShell is unavailable.
+        }
+        return null;
+    }
+
     private static File parse(String raw) {
         String s = raw.trim();
         if (s.length() >= 2 && s.startsWith("\"") && s.endsWith("\""))
