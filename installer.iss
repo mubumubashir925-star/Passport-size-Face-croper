@@ -12,11 +12,13 @@ DefaultDirName={autopf}\Face Crop Pro
 DefaultGroupName=Face Crop Pro
 OutputDir=installer-output
 OutputBaseFilename=FaceCropPro-Setup-x64
+SetupIconFile=facecrop.ico
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 Compression=lzma
 SolidCompression=yes
 [Files]
+Source: "facecrop.ico"; DestDir: "{app}"
 Source: "build\*"; DestDir: "{app}\build"; Flags: recursesubdirs
 Source: "lib\opencv-455.jar"; DestDir: "{app}\lib"
 Source: "lib\flatlaf-3.5.jar"; DestDir: "{app}\lib"
@@ -28,7 +30,7 @@ Source: "launch.vbs"; DestDir: "{app}"
 Source: "native-folder-picker.ps1"; DestDir: "{app}"
 Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
 [Icons]
-Name: "{group}\Face Crop Pro"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"
-Name: "{autodesktop}\Face Crop Pro"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{group}\Face Crop Pro"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\facecrop.ico"
+Name: "{autodesktop}\Face Crop Pro"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; IconFilename: "{app}\facecrop.ico"; Tasks: desktopicon
 [Tasks]
 Name: desktopicon; Description: "Create a desktop shortcut"
