@@ -151,6 +151,16 @@ public final class FaceCropPro {
         inputPath.addActionListener(e -> loadPastedInput());
         inputActions.add(loadInput);
         inputActions.add(inputBrowse);
+        JButton inputFilePicker=new JButton("File Picker");
+        inputFilePicker.setToolTipText("Choose any image file; its parent folder is loaded");
+        inputFilePicker.addActionListener(e -> {
+            File folder=FolderPathDialog.chooseByFile(frame,"Input folder",null);
+            if(folder!=null && folder.isDirectory()) {
+                inputPath.setText(folder.getAbsolutePath());
+                loadPastedInput();
+            }
+        });
+        inputActions.add(inputFilePicker);
         inputRow.add(inputActions, BorderLayout.EAST);
         JPanel outputRow = new JPanel(new BorderLayout(6, 0));
         outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
@@ -158,7 +168,19 @@ public final class FaceCropPro {
         outputRow.add(outputPath, BorderLayout.CENTER);
         JButton outputBrowse = new JButton("Browse Output");
         outputBrowse.addActionListener(e -> chooseOutputFolder());
-        outputRow.add(outputBrowse, BorderLayout.EAST);
+        JPanel outputActions=new JPanel(new FlowLayout(FlowLayout.RIGHT,2,0));
+        JButton outputFilePicker=new JButton("File Picker");
+        outputFilePicker.setToolTipText("Choose any existing file inside the desired output folder");
+        outputFilePicker.addActionListener(e -> {
+            File folder=FolderPathDialog.chooseByFile(frame,"Output folder",null);
+            if(folder!=null && folder.isDirectory()) {
+                outputPath.setText(folder.getAbsolutePath());
+                status.setText("Output folder: "+folder.getAbsolutePath());
+            }
+        });
+        outputActions.add(outputBrowse);
+        outputActions.add(outputFilePicker);
+        outputRow.add(outputActions, BorderLayout.EAST);
         folders.add(inputRow);
         folders.add(outputRow);
         JPanel topControls = new JPanel(new BorderLayout(4, 4));
