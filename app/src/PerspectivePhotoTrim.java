@@ -10,7 +10,9 @@ public final class PerspectivePhotoTrim {
         Mat gray = new Mat(), blur = new Mat(), edges = new Mat(), hierarchy = new Mat();
         ArrayList<MatOfPoint> contours = new ArrayList<MatOfPoint>();
         try {
-            Imgproc.cvtColor(source, gray, Imgproc.COLOR_BGR2GRAY);
+            if (source.channels() == 1) source.copyTo(gray);
+            else Imgproc.cvtColor(source, gray, source.channels() == 4 ?
+                Imgproc.COLOR_BGRA2GRAY : Imgproc.COLOR_BGR2GRAY);
             Imgproc.GaussianBlur(gray, blur, new Size(5, 5), 0);
             Imgproc.Canny(blur, edges, 45, 135);
             Imgproc.findContours(edges, contours, hierarchy, Imgproc.RETR_LIST,
@@ -36,7 +38,7 @@ public final class PerspectivePhotoTrim {
                         candidateArea < bestArea) continue;
                     Point center = new Point(source.cols() * .5, source.rows() * .5);
                     if (Imgproc.pointPolygonTest(polygon, center, false) < 0) continue;
-                    Rect box = Imgproc.boundingRect(new MatOfPoint(points));
+                    Rect box = Imgproc.boundingRect(polygon);
                     if (box.width < source.cols() * .48 || box.height < source.rows() * .48)
                         continue;
                     bestArea = candidateArea;
@@ -56,13 +58,13 @@ public final class PerspectivePhotoTrim {
             MatOfPoint2f to = new MatOfPoint2f(
                 new Point(-inset, -inset), new Point(width + inset, -inset),
                 new Point(width + inset, height + inset), new Point(-inset, height + inset));
-            Mat matrix = new Mat(), output = new Mat();
+            Mat matrix = null, output = new Mat();
             try {
                 matrix = Imgproc.getPerspectiveTransform(from, to);
                 Imgproc.warpPerspective(source, output, matrix,
                     new Size(Math.round(width - 2 * inset), Math.round(height - 2 * inset)));
                 return output;
-            } finally { from.release(); to.release(); matrix.release(); }
+            } finally { from.release(); to.release(); if (matrix != null) matrix.release(); }
         } finally {
             gray.release(); blur.release(); edges.release(); hierarchy.release();
             for (MatOfPoint contour : contours) contour.release();
