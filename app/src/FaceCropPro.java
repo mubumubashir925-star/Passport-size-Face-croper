@@ -255,6 +255,9 @@ public final class FaceCropPro {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gallery, outputPanel);
         split.setResizeWeight(0.52);
         center.add(split, BorderLayout.CENTER);
+        JButton buildPreviews = new JButton("Generate Crop Previews");
+        buildPreviews.addActionListener(e -> generateCropPreviews());
+        outputButtons.add(buildPreviews);
         root.add(center, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
@@ -422,6 +425,7 @@ public final class FaceCropPro {
                         if (existing.add(path)) { files.addElement(path); added++; }
                     updateCount();
                     status.setText("Loaded " + added + " photos from " + folder.getAbsolutePath());
+                    generateCropPreviews();
                 } catch (Exception ex) {
                     status.setText("Input folder scan failed: " + ex.getMessage());
                     JOptionPane.showMessageDialog(frame, ex.toString());
