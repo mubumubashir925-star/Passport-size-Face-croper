@@ -352,7 +352,7 @@ public final class FaceCropPro {
                 java.awt.image.BufferedImage[] examples = new java.awt.image.BufferedImage[4];
                 examples[0] = javax.imageio.ImageIO.read(new File(sample));
                 ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
-                FaceCropEngine engine = new FaceCropEngine(new File("models/haarcascade_frontalface_alt.xml"));
+                FaceCropEngine engine = new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
                 Mat source = Imgcodecs.imread(sample);
                 try {
                     int[][] sizes = {{413,531},{466,600},{600,600}};
