@@ -133,18 +133,69 @@ public final class FaceCropEngine {
      * Try quarter-turn orientations when the upright detector cannot find a face.
      * Returns a finished crop; original source Mat remains untouched.
      */
+    /** Compare every quarter-turn: Haar can mistake a sideways mouth for a face. */
     public Mat cropAutoOriented(Mat source, int outW, int outH) {
-        List<Rect> upright = detect(source);
-        if (!upright.isEmpty()) return cropAligned(source, upright.get(0), outW, outH);
-        int[] rotations = {Core.ROTATE_90_CLOCKWISE, Core.ROTATE_90_COUNTERCLOCKWISE, Core.ROTATE_180};
+        int[] rotations = {-1, Core.ROTATE_90_CLOCKWISE,
+            Core.ROTATE_90_COUNTERCLOCKWISE, Core.ROTATE_180};
+        double bestScore = -1;
+        int bestRotation = -1;
+        Rect bestFace = null;
         for (int rotation : rotations) {
-            Mat turned = new Mat();
+            Mat oriented = new Mat();
             try {
-                Core.rotate(source, turned, rotation);
-                List<Rect> faces = detect(turned);
-                if (!faces.isEmpty()) return cropAligned(turned, faces.get(0), outW, outH);
-            } finally { turned.release(); }
+                if (rotation == -1) source.copyTo(oriented);
+                else Core.rotate(source, oriented, rotation);
+                for (Rect face : detect(oriented)) {
+                    // Reject extremely small detections and implausible partial faces.
+                    if (face.width < oriented.cols() * .075 ||
+                        face.height < oriented.rows() * .075) continue;
+                    double score = face.area() / (oriented.cols() * (double)oriented.rows());
+                    // Real frontal faces usually have an eye pair in the upper face.
+                    if (hasEyePair(oriented, face)) score += 0.30;
+                    // A detected face close to the center is more plausible.
+                    double cx = (face.x + face.width * .5) / oriented.cols();
+                    double cy = (face.y + face.height * .5) / oriented.rows();
+                    score -= 0.07 * (Math.abs(cx - .5) + Math.abs(cy - .40));
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestRotation = rotation;
+                        bestFace = face;
+                    }
+                }
+            } finally { oriented.release(); }
         }
-        return null;
+        if (bestFace == null) return null;
+        Mat oriented = new Mat();
+        try {
+            if (bestRotation == -1) source.copyTo(oriented);
+            else Core.rotate(source, oriented, bestRotation);
+            return cropAligned(oriented, bestFace, outW, outH);
+        } finally { oriented.release(); }
+    }
+
+    private boolean hasEyePair(Mat source, Rect face) {
+        if (eyes == null || eyes.empty()) return false;
+        Rect top = new Rect(face.x, face.y, face.width,
+            Math.max(1, Math.min(face.height * 2 / 3, source.rows() - face.y)));
+        Mat region = new Mat(source, top);
+        Mat gray = new Mat();
+        MatOfRect found = new MatOfRect();
+        try {
+            Imgproc.cvtColor(region, gray, region.channels() == 4 ?
+                Imgproc.COLOR_BGRA2GRAY : Imgproc.COLOR_BGR2GRAY);
+            Imgproc.equalizeHist(gray, gray);
+            eyes.detectMultiScale(gray, found, 1.08, 3, 0, new Size(12,12), new Size());
+            Rect[] candidates = found.toArray();
+            for (int i = 0; i < candidates.length; i++)
+                for (int j = i+1; j < candidates.length; j++) {
+                    double dx = Math.abs((candidates[i].x+candidates[i].width*.5) -
+                        (candidates[j].x+candidates[j].width*.5));
+                    double dy = Math.abs((candidates[i].y+candidates[i].height*.5) -
+                        (candidates[j].y+candidates[j].height*.5));
+                    if (dx > face.width*.22 && dx < face.width*.8 &&
+                        dy < face.height*.2) return true;
+                }
+            return false;
+        } finally { found.release(); gray.release(); region.release(); }
     }
 }
