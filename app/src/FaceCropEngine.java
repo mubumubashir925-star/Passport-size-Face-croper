@@ -114,7 +114,9 @@ public final class FaceCropEngine {
         }
         int ix = (int)Math.round(Math.max(0, Math.min(imageW - iw, centerX - iw / 2.0)));
         int iy = (int)Math.round(Math.max(0, Math.min(imageH - ih, desiredTop)));
-        // If the detected face is close to the top edge, prioritize keeping the scalp.\n        if (face.y < face.height * 0.35) iy = 0;\n        return new Rect(ix, iy, iw, ih);
+        // If the detected face is close to the top edge, prioritize keeping the scalp.
+        if (face.y < face.height * 0.35) iy = 0;
+        return new Rect(ix, iy, iw, ih);
     }
     public static Mat crop(Mat image, Rect face, int outW, int outH) {
         if (outW < 1 || outH < 1) throw new IllegalArgumentException("Invalid output size");
