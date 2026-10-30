@@ -230,6 +230,7 @@ public final class FaceCropPro {
                         JOptionPane.showMessageDialog(frame, "Not a valid folder: " + folder);
                         return;
                     }
+                    inputPath.setText(folder.getAbsolutePath());
                     status.setText("Scanning images in " + folder.getAbsolutePath() + "...");
                     new javax.swing.SwingWorker<java.util.List<String>, Void>() {
                         protected java.util.List<String> doInBackground() {
@@ -369,13 +370,50 @@ public final class FaceCropPro {
         if (robotOutput != null && !files.isEmpty()) startCroppingTo(robotOutput);
     }
 
+    private void chooseOutputFolder() {
+        status.setText("Opening output folder picker...");
+        new SwingWorker<File, Void>() {
+            protected File doInBackground() {
+                return FolderPathDialog.choose(frame, "Choose output photo folder", null);
+            }
+            protected void done() {
+                try {
+                    File folder = get();
+                    if (folder != null && folder.isDirectory()) {
+                        outputPath.setText(folder.getAbsolutePath());
+                        status.setText("Output folder selected: " + folder.getAbsolutePath());
+                    } else status.setText("Output folder selection cancelled");
+                } catch (Exception ex) {
+                    status.setText("Output folder picker error: " + ex.getMessage());
+                    JOptionPane.showMessageDialog(frame, ex.toString(), "Folder picker error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }.execute();
+    }
+
     private void startCropping() {
+        String sourceText = inputPath.getText().trim();
+        if (!sourceText.isEmpty()) {
+            File source = new File(sourceText);
+            if (!source.isDirectory()) {
+                JOptionPane.showMessageDialog(frame, "Input folder does not exist: " + sourceText);
+                return;
+            }
+        }
         if (files.isEmpty()) {
-            JOptionPane.showMessageDialog(frame, "Add photos first.");
+            JOptionPane.showMessageDialog(frame, "Add photos using Browse Input or Add Photos first.");
             return;
         }
-        File folder = FolderPathDialog.choose(frame, "Choose output folder", null);
-        if (folder == null) return;
+        String destination = outputPath.getText().trim();
+        if (destination.isEmpty()) {
+            JOptionPane.showMessageDialog(frame, "Select or paste an Output folder before Start Cropping.");
+            return;
+        }
+        File folder = new File(destination);
+        if (folder.exists() && !folder.isDirectory()) {
+            JOptionPane.showMessageDialog(frame, "Output path is not a folder.");
+            return;
+        }
         startCroppingTo(folder);
     }
 
