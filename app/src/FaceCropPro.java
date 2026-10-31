@@ -11,7 +11,8 @@ import org.opencv.imgcodecs.Imgcodecs;
 /** Phase 1: Java 8-compatible unified desktop shell. */
 public final class FaceCropPro {
     private final JFrame frame = new JFrame("Face Crop Pro");
-    private boolean darkTheme = false;
+    private static final java.util.prefs.Preferences SETTINGS = java.util.prefs.Preferences.userNodeForPackage(FaceCropPro.class);
+    private boolean darkTheme = SETTINGS.getBoolean("darkTheme", false);
     private final java.util.List<JPanel> styledPanels = new java.util.ArrayList<JPanel>();
     private final DefaultListModel<String> files = new DefaultListModel<String>();
     private final JLabel status = new JLabel("Ready — add photos to begin");
@@ -78,7 +79,8 @@ public final class FaceCropPro {
         updates.addActionListener(e -> AppUpdates.check(frame));
         JPanel headerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         JComboBox<String> themePicker = new JComboBox<String>(new String[]{"Light theme", "Dark theme"});
-        themePicker.setToolTipText("Switch between light and dark appearance");
+        themePicker.setSelectedIndex(darkTheme ? 1 : 0);
+        themePicker.setToolTipText("Switch between light and dark appearance (saved automatically)");
         themePicker.addActionListener(e -> switchTheme(themePicker.getSelectedIndex() == 1));
         headerActions.add(themePicker);
         headerActions.add(updates);
@@ -358,6 +360,7 @@ public final class FaceCropPro {
     private void switchTheme(boolean dark) {
         if (darkTheme == dark) return;
         darkTheme = dark;
+        SETTINGS.putBoolean("darkTheme", dark);
         try {
             UIManager.setLookAndFeel(dark ? "com.formdev.flatlaf.FlatDarkLaf" : "com.formdev.flatlaf.FlatLightLaf");
             SwingUtilities.updateComponentTreeUI(frame);
