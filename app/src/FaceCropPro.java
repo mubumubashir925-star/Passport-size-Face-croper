@@ -39,7 +39,7 @@ public final class FaceCropPro {
     private final java.util.Map<String, ImageIcon> previewIcons = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
     private volatile int previewGeneration = 0;
     private File previewDirectory;
-    private final JButton editOutput = new JButton("Adjust 4 Corners & Save");
+    private final JButton editOutput = new JButton("Adjust Selected Crop");
     private final java.util.Map<String, ImageIcon> thumbnails = new java.util.concurrent.ConcurrentHashMap<String, ImageIcon>();
     private final java.util.Set<String> thumbnailJobs = java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<String, Boolean>());
     private final java.util.concurrent.ExecutorService thumbnailPool = java.util.concurrent.Executors.newFixedThreadPool(2, task -> {
@@ -190,7 +190,7 @@ public final class FaceCropPro {
                 JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, selected, focused);
                 String path = String.valueOf(value);
                 label.setIcon(thumbnails.get(path));
-                label.setText(new File(path).getName());
+                label.setText(new File(path).getName() + (previewFiles.containsKey(path) ? "" : "  [MANUAL CROP]"));
                 label.setHorizontalAlignment(SwingConstants.CENTER);
                 label.setHorizontalTextPosition(SwingConstants.CENTER);
                 label.setVerticalTextPosition(SwingConstants.BOTTOM);
@@ -236,12 +236,23 @@ public final class FaceCropPro {
                 return label;
             }
         });
+        previewList.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2 && SwingUtilities.isLeftMouseButton(e)) {
+                    int index = previewList.locationToIndex(e.getPoint());
+                    if (index >= 0 && previewList.getCellBounds(index,index).contains(e.getPoint())) {
+                        previewList.setSelectedIndex(index);
+                        editSelectedOutput();
+                    }
+                }
+            }
+        });
         previewList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selected = previewList.getSelectedValue();
                 if (selected != null) {
                     fileList.setSelectedValue(selected,true);
-                    editOutput.setEnabled(previewFiles.containsKey(selected));
+                    editOutput.setEnabled(true);
                 }
             }
         });
@@ -253,6 +264,8 @@ public final class FaceCropPro {
         editOutput.addActionListener(e -> editSelectedOutput());
         outputButtons.add(refreshOutput);
         outputButtons.add(editOutput);
+        JLabel editHint = new JLabel("Double-click a crop to adjust it");
+        outputButtons.add(editHint);
         outputPanel.add(outputButtons, BorderLayout.SOUTH);
         fileList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) refreshSelectedOutput();
@@ -261,9 +274,6 @@ public final class FaceCropPro {
         JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gallery, outputPanel);
         split.setResizeWeight(0.52);
         center.add(split, BorderLayout.CENTER);
-        JButton buildPreviews = new JButton("Generate Crop Previews");
-        buildPreviews.addActionListener(e -> generateCropPreviews());
-        outputButtons.add(buildPreviews);
         root.add(center, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(8, 8));
@@ -729,7 +739,7 @@ public final class FaceCropPro {
         final java.util.Map<String, File> prepared = new java.util.HashMap<String, File>(previewFiles);
         if (previewModel.size() < files.size()) {
             int answer = JOptionPane.showConfirmDialog(frame,
-                "Only " + previewModel.size() + " of " + files.size() + " images have previews. Continue?",
+                "Some crop previews are still being prepared. Continue anyway?",
                 "Preview check", JOptionPane.YES_NO_OPTION);
             if (answer != JOptionPane.YES_OPTION) return;
         }
@@ -868,14 +878,22 @@ public final class FaceCropPro {
                 failedCount.setText("Failed: " + failedFiles.size());
                 try {
                     int[] result = get();
-                    StringBuilder summary = new StringBuilder("Saved: " + result[0] + "\\nFailed: " + result[1]);
+                    StringBuilder summary = new StringBuilder();
+                    summary.append("CROPPING COMPLETED\\n\\n");
+                    summary.append("Successfully saved: ").append(result[0]).append(" photo(s)\\n");
+                    summary.append("Could not crop: ").append(result[1]).append(" photo(s)\\n");
+                    summary.append("Total selected: ").append(selected.size()).append(" photo(s)\\n");
+                    summary.append("Output folder: ").append(output.getAbsolutePath());
                     if (!failedFiles.isEmpty()) {
-                        summary.append("\\n\\nFailed files (first 20):");
+                        summary.append("\\n\\nPHOTOS THAT NEED ATTENTION:");
                         for (int i = 0; i < Math.min(20, failedFiles.size()); i++)
-                            summary.append("\\n- ").append(new File(failedFiles.get(i)).getName());
-                        summary.append("\\n\\nUse Retry Failed to try again.");
-                    }
-                    JOptionPane.showMessageDialog(frame, summary.toString(), "Cropping result",
+                            summary.append("\\n  ").append(i+1).append(". ").append(new File(failedFiles.get(i)).getName());
+                        summary.append("\\n\\nThese photos were not saved. Select their");
+                        summary.append("\\n[MANUAL CROP] preview, double-click to adjust,");
+                        summary.append("\\nthen use Retry Failed.");
+                    } else summary.append("\\n\\nAll selected photos were saved successfully.");
+                    JOptionPane.showMessageDialog(frame, summary.toString(),
+                        result[1] > 0 ? "Cropping finished - some photos need attention" : "Cropping completed successfully",
                         result[1] > 0 ? JOptionPane.WARNING_MESSAGE : JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(frame, ex.getMessage());
@@ -910,7 +928,7 @@ public final class FaceCropPro {
                     if (generation!=previewGeneration) break;
                     Mat image=Imgcodecs.imread(path), crop=null;
                     try {
-                        if(image.empty()) continue;
+                        if(image.empty()) { publish(path); continue; }
                         // Try all orientations before any border correction.
                         // This prevents sideways faces from being mistaken for scan borders.
                         crop=engine.cropAutoOriented(image,outW,outH);
@@ -922,13 +940,14 @@ public final class FaceCropPro {
                                 finally { cleaned.release(); }
                             } finally { straight.release(); }
                         }
-                        if(crop==null || crop.empty()) continue;
+                        if(crop==null || crop.empty()) { publish(path); continue; }
                         File target=new File(previewDirectory,String.format("%06d.jpg",i));
                         if(Imgcodecs.imwrite(target.getAbsolutePath(),crop)) {
                             previewFiles.put(path,target);
                             publish(path);
                         }
                     } catch(Exception ignored) {
+                        publish(path);
                     } finally {
                         image.release();
                         if(crop!=null) crop.release();
@@ -941,14 +960,17 @@ public final class FaceCropPro {
                 if(generation!=previewGeneration) return;
                 for(String path:items) {
                     File target=previewFiles.get(path);
-                    if(target==null) continue;
                     try {
-                        java.awt.image.BufferedImage img=javax.imageio.ImageIO.read(target);
+                        java.awt.image.BufferedImage img=target == null ? null : javax.imageio.ImageIO.read(target);
                         if(img!=null) {
                             Image scaled=img.getScaledInstance(112,144,Image.SCALE_FAST);
                             previewIcons.put(path,new ImageIcon(scaled));
                         }
-                        previewModel.addElement(path);
+                        if (target == null) {
+                            ImageIcon original = thumbnails.get(path);
+                            if (original != null) previewIcons.put(path,original);
+                        }
+                        if (!previewModel.contains(path)) previewModel.addElement(path);
                         editOutput.setEnabled(true);
                     } catch(Exception ignored) {}
                 }
@@ -1005,16 +1027,37 @@ public final class FaceCropPro {
         if (selectedPath == null) selectedPath = fileList.getSelectedValue();
         final String previewKey = selectedPath;
         File target = previewKey == null ? null : previewFiles.get(previewKey);
-        if (target == null || !target.isFile()) {
-            JOptionPane.showMessageDialog(frame, "Select a generated crop preview first.");
+        if (previewKey == null) {
+            JOptionPane.showMessageDialog(frame, "Select an image from Crop Preview first.");
             return;
         }
+        if (target == null || !target.isFile()) {
+            try {
+                ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+                if (previewDirectory == null) previewDirectory = java.nio.file.Files.createTempDirectory("facecrop-manual-").toFile();
+                target = new File(previewDirectory, "manual-" + Integer.toHexString(previewKey.hashCode()) + ".jpg");
+                Mat original = Imgcodecs.imread(previewKey);
+                try {
+                    if (original.empty()) throw new IOException("Cannot read source photo");
+                    Mat initial = new Mat();
+                    try {
+                        Imgproc.resize(original, initial, new org.opencv.core.Size(((Number)width.getValue()).intValue(), ((Number)height.getValue()).intValue()));
+                        if (!Imgcodecs.imwrite(target.getAbsolutePath(), initial)) throw new IOException("Cannot create manual crop preview");
+                    } finally { initial.release(); }
+                } finally { original.release(); }
+                previewFiles.put(previewKey,target);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "Cannot open manual crop: " + ex.getMessage());
+                return;
+            }
+        }
+        final File editableTarget = target;
         try {
             ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
-            OutputPerspectiveEditor.open(frame, new File(previewKey), target,
+            OutputPerspectiveEditor.open(frame, new File(previewKey), editableTarget,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
-                    refreshPreviewIcon(previewKey, target);
+                    refreshPreviewIcon(previewKey, editableTarget);
                     status.setText("Adjustment saved for final cropping: " + new File(previewKey).getName());
                 });
         } catch (Exception ex) {
