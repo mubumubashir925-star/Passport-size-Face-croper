@@ -944,6 +944,11 @@ public final class FaceCropPro {
         worker.execute();
     }
 
+    private volatile boolean manualEditorOpen = false;
+    private File savedManualState(String path, int w, int h) {
+        File preview=savedManualPreview(path,w,h);
+        return new File(preview.getParentFile(),preview.getName()+".properties");
+    }
     private File savedManualPreview(String path, int w, int h) {
         File source = new File(path);
         String key = source.getAbsolutePath()+"|"+source.lastModified()+"|"+w+"x"+h;
@@ -971,6 +976,11 @@ public final class FaceCropPro {
                 int i=0;
                 for (String path:paths) {
                     if (generation!=previewGeneration) break;
+                    while(manualEditorOpen && generation==previewGeneration) {
+                        try {Thread.sleep(120);} catch(InterruptedException interrupted) {
+                            Thread.currentThread().interrupt(); return null;
+                        }
+                    }
                     File saved = savedManualPreview(path,outW,outH);
                     if(saved.isFile()) { previewFiles.put(path,saved); publish(path); i++; continue; }
                     Mat image=Imgcodecs.imread(path), crop=null;
@@ -1093,6 +1103,7 @@ public final class FaceCropPro {
         final File editableTarget = target;
         try {
             ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+            manualEditorOpen = true;
             OutputPerspectiveEditor.open(frame, new File(previewKey), editableTarget,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
@@ -1115,9 +1126,11 @@ public final class FaceCropPro {
                         previewList.ensureIndexIsVisible(index+1);
                         editSelectedOutput();
                     } else JOptionPane.showMessageDialog(frame,"Last photo reached.");
-                });
+                }, savedManualState(previewKey,((Number)width.getValue()).intValue(),((Number)height.getValue()).intValue()));
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            manualEditorOpen = false;
         }
     }
 
