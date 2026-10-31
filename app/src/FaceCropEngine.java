@@ -173,6 +173,33 @@ public final class FaceCropEngine {
         } finally { oriented.release(); }
     }
 
+    /**
+     * Conservative scan-aware crop. Only accept border correction when the scan
+     * trimming actually removes a visible strip and a face is still detectable.
+     * Ordinary photographs retain the established face crop behaviour.
+     */
+    public Mat cropAutoOrientedWithScanTrim(Mat source, int outW, int outH) {
+        Mat straight = null, cleaned = null;
+        try {
+            straight = PerspectivePhotoTrim.trim(source);
+            cleaned = PhotoBorderTrim.trim(straight);
+            double originalArea = source.cols() * (double) source.rows();
+            double cleanArea = cleaned.cols() * (double) cleaned.rows();
+            boolean meaningful = cleanArea < originalArea * .94;
+            boolean safeSize = cleaned.cols() >= source.cols() * .58 &&
+                cleaned.rows() >= source.rows() * .58;
+            if (meaningful && safeSize) {
+                Mat candidate = cropAutoOriented(cleaned, outW, outH);
+                if (candidate != null && !candidate.empty()) return candidate;
+                if (candidate != null) candidate.release();
+            }
+            return cropAutoOriented(source, outW, outH);
+        } finally {
+            if (cleaned != null) cleaned.release();
+            if (straight != null) straight.release();
+        }
+    }
+
     private boolean hasEyePair(Mat source, Rect face) {
         if (eyes == null || eyes.empty()) return false;
         Rect top = new Rect(face.x, face.y, face.width,
