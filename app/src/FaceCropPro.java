@@ -56,8 +56,8 @@ public final class FaceCropPro {
     private final JCheckBox trimBorders = new JCheckBox("Remove scan borders", true);
     private final JCheckBox multipleFaces = new JCheckBox("Extract all faces");
     private final JComboBox<String> preset = new JComboBox<String>(new String[]{"Passport portrait · 413 x 531", "ID portrait · 466 x 600", "Square headshot · 600 x 600", "Custom size"});
-    private final JSpinner width = new JSpinner(new SpinnerNumberModel(413, 100, 6000, 1));
-    private final JSpinner height = new JSpinner(new SpinnerNumberModel(531, 100, 6000, 1));
+    private final JSpinner width = new JSpinner(new SpinnerNumberModel(466, 100, 6000, 1));
+    private final JSpinner height = new JSpinner(new SpinnerNumberModel(600, 100, 6000, 1));
 
     private FaceCropPro() {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
@@ -144,6 +144,7 @@ public final class FaceCropPro {
             if (i == 1) { width.setValue(466); height.setValue(600); }
             if (i == 2) { width.setValue(600); height.setValue(600); }
         });
+        preset.setSelectedIndex(1);
         JPanel controls = new JPanel(new BorderLayout());
         controls.add(toolbar, BorderLayout.NORTH);
         controls.add(options, BorderLayout.SOUTH);
