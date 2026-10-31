@@ -2,6 +2,8 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.io.IOException;
+import org.opencv.imgproc.Imgproc;
 import java.util.List;
 import org.opencv.core.*;
 import org.opencv.imgcodecs.Imgcodecs;
@@ -190,7 +192,13 @@ public final class FaceCropPro {
                 JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, selected, focused);
                 String path = String.valueOf(value);
                 label.setIcon(thumbnails.get(path));
-                label.setText(new File(path).getName() + (previewFiles.containsKey(path) ? "" : "  [MANUAL CROP]"));
+                boolean needsManual = !previewFiles.containsKey(path);
+                label.setText(new File(path).getName() + (needsManual ? "  [MANUAL CROP]" : ""));
+                if (needsManual && !selected) {
+                    label.setOpaque(true);
+                    label.setBackground(new Color(255, 235, 209));
+                    label.setForeground(new Color(120, 55, 0));
+                }
                 label.setHorizontalAlignment(SwingConstants.CENTER);
                 label.setHorizontalTextPosition(SwingConstants.CENTER);
                 label.setVerticalTextPosition(SwingConstants.BOTTOM);
