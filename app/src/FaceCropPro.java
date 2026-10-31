@@ -818,7 +818,9 @@ public final class FaceCropPro {
                             image = Imgcodecs.imread(name);
                             if (image.empty()) throw new IllegalArgumentException("Cannot read image");
                             if (preparedPreview == null && !extractAll && !overrides.containsKey(name)) {
-                                cropped = engine.cropAutoOriented(image, outputWidth, outputHeight);
+                                cropped = trim
+                                    ? engine.cropAutoOrientedWithScanTrim(image, outputWidth, outputHeight)
+                                    : engine.cropAutoOriented(image, outputWidth, outputHeight);
                             }
                             if (preparedPreview == null && cropped == null && trim &&
                                 !overrides.containsKey(name)) {
@@ -965,17 +967,9 @@ public final class FaceCropPro {
                     Mat image=Imgcodecs.imread(path), crop=null;
                     try {
                         if(image.empty()) { publish(path); continue; }
-                        // Try all orientations before any border correction.
-                        // This prevents sideways faces from being mistaken for scan borders.
-                        crop=engine.cropAutoOriented(image,outW,outH);
-                        if ((crop==null || crop.empty()) && trim) {
-                            Mat straight=PerspectivePhotoTrim.trim(image);
-                            try {
-                                Mat cleaned=PhotoBorderTrim.trim(straight);
-                                try { crop=engine.cropAutoOriented(cleaned,outW,outH); }
-                                finally { cleaned.release(); }
-                            } finally { straight.release(); }
-                        }
+                        // Use the same scan-aware crop in preview and final export.
+                        crop = trim ? engine.cropAutoOrientedWithScanTrim(image,outW,outH)
+                                    : engine.cropAutoOriented(image,outW,outH);
                         if(crop==null || crop.empty()) { publish(path); continue; }
                         File target=new File(previewDirectory,String.format("%06d.jpg",i));
                         if(Imgcodecs.imwrite(target.getAbsolutePath(),crop)) {
