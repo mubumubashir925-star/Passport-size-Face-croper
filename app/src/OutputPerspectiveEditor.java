@@ -19,7 +19,8 @@ import org.opencv.imgproc.Imgproc;
 /** Edit an existing cropped output using four independently draggable corners. */
 public final class OutputPerspectiveEditor {
     private OutputPerspectiveEditor() {}
-    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved) {
+    private static final java.util.prefs.Preferences PREFS = java.util.prefs.Preferences.userNodeForPackage(OutputPerspectiveEditor.class);
+    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext) {
         try {
             BufferedImage source = ImageIO.read(original);
             if (source == null) throw new IllegalArgumentException("Cannot read output image");
@@ -47,9 +48,9 @@ public final class OutputPerspectiveEditor {
             final double initialX=x0, initialY=y0, initialW=cropWidth, initialH=cropHeight;
             double[][] corners = {{x0,y0},{x0+cropWidth,y0},
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
-            JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners");
-            JCheckBox grid = new JCheckBox("Show 3 x 3 grid");
-            JCheckBox fullGrid = new JCheckBox("Grid across full image");
+            JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners", PREFS.getBoolean("perspective",false));
+            JCheckBox grid = new JCheckBox("Show 3 x 3 grid", PREFS.getBoolean("grid",false));
+            JCheckBox fullGrid = new JCheckBox("Grid across full image", PREFS.getBoolean("fullGrid",false));
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
@@ -177,8 +178,8 @@ public final class OutputPerspectiveEditor {
             JLabel rotationHint = new JLabel("Rotate crop: drag just outside a corner");
             rotationHint.setToolTipText("Hover 13-42 pixels outside a corner until the hand cursor appears, then drag to rotate the crop box.");
             options.add(rotationHint);
-            JButton rotateLeft = new JButton("Rotate Left 90°");
-            JButton rotateRight = new JButton("Rotate Right 90°");
+            JButton rotateLeft = new JButton("↶");
+            JButton rotateRight = new JButton("↷");
             java.util.function.IntConsumer rotate = direction -> {
                 BufferedImage before = view[0];
                 BufferedImage after = new BufferedImage(before.getHeight(), before.getWidth(), BufferedImage.TYPE_INT_RGB);
@@ -197,9 +198,11 @@ public final class OutputPerspectiveEditor {
             };
             rotateLeft.addActionListener(e -> rotate.accept(-1));
             rotateRight.addActionListener(e -> rotate.accept(1));
+            rotateLeft.setToolTipText("Rotate left 90 degrees"); rotateRight.setToolTipText("Rotate right 90 degrees");
             options.add(rotateLeft); options.add(rotateRight);
-            grid.addActionListener(e->canvas.repaint());
-            fullGrid.addActionListener(e->canvas.repaint());
+            perspective.addActionListener(e -> PREFS.putBoolean("perspective",perspective.isSelected()));
+            grid.addActionListener(e->{PREFS.putBoolean("grid",grid.isSelected());canvas.repaint();});
+            fullGrid.addActionListener(e->{PREFS.putBoolean("fullGrid",fullGrid.isSelected());canvas.repaint();});
             bottom.add(options,BorderLayout.NORTH);
             JPanel buttons=new JPanel(new FlowLayout(FlowLayout.RIGHT));
             JButton reset=new JButton("Reset Corners");
@@ -210,6 +213,9 @@ public final class OutputPerspectiveEditor {
             });
             JButton cancel=new JButton("Cancel");cancel.addActionListener(e->dialog.dispose());
             JButton save=new JButton("Save Adjusted Output");
+            final boolean[] advance = {false};
+            JButton saveNext = new JButton("Save & Next");
+            saveNext.addActionListener(e -> {advance[0]=true;save.doClick();});
             save.addActionListener(e->{
                 Mat input=Imgcodecs.imread(original.getAbsolutePath()), transformed=new Mat();
                 MatOfPoint2f from=new MatOfPoint2f(),to=new MatOfPoint2f();
@@ -233,7 +239,7 @@ public final class OutputPerspectiveEditor {
                     Imgproc.warpPerspective(input,transformed,matrix,new Size(width,height));
                     if(!Imgcodecs.imwrite(output.getAbsolutePath(),transformed))
                         throw new IllegalStateException("Could not save output");
-                    dialog.dispose();onSaved.run();
+                    dialog.dispose();onSaved.run();if(advance[0] && onNext!=null) SwingUtilities.invokeLater(onNext);
                 } catch(Exception ex) {
                     JOptionPane.showMessageDialog(dialog,ex.getMessage(),"Save failed",JOptionPane.ERROR_MESSAGE);
                 } finally {
@@ -241,7 +247,7 @@ public final class OutputPerspectiveEditor {
                     if(matrix!=null) matrix.release();
                 }
             });
-            buttons.add(reset);buttons.add(cancel);buttons.add(save);
+            buttons.add(reset);buttons.add(cancel);buttons.add(save);buttons.add(saveNext);
             bottom.add(buttons,BorderLayout.SOUTH);dialog.add(bottom,BorderLayout.SOUTH);
             dialog.setSize(850,700);dialog.setLocationRelativeTo(owner);dialog.setVisible(true);
         } catch(Exception ex) {
