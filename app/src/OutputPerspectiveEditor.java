@@ -3,6 +3,7 @@ import javax.swing.*;
 import java.awt.Window;
 import java.awt.Dialog;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.BasicStroke;
@@ -52,6 +53,8 @@ public final class OutputPerspectiveEditor {
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
+                boolean rotating = false;
+                double previousAngle = 0;
                 {
                     setBackground(new Color(30,33,38));
                     MouseAdapter mouse = new MouseAdapter() {
@@ -62,9 +65,33 @@ public final class OutputPerspectiveEditor {
                                 double d=Math.hypot(x-corners[i][0],y-corners[i][1]);
                                 if(d<nearest) {nearest=d;moving=i;}
                             }
-                            if(nearest>35/scale) moving=-1;
+                            double distancePx = nearest * scale;
+                            rotating = distancePx > 13 && distancePx <= 42;
+                            if (rotating) {
+                                moving = -1;
+                                double cx=0,cy=0;
+                                for(int j=0;j<4;j++){cx+=corners[j][0];cy+=corners[j][1];}
+                                previousAngle=Math.atan2(y-cy/4,x-cx/4);
+                            } else if(distancePx>13) moving=-1;
                         }
                         public void mouseDragged(MouseEvent e) {
+                            if (rotating) {
+                                double x=(e.getX()-ox)/scale,y=(e.getY()-oy)/scale;
+                                double cx=0,cy=0;
+                                for(int j=0;j<4;j++){cx+=corners[j][0];cy+=corners[j][1];}
+                                cx/=4;cy/=4;
+                                double angle=Math.atan2(y-cy,x-cx);
+                                double delta=angle-previousAngle;
+                                double co=Math.cos(delta),si=Math.sin(delta);
+                                for(int j=0;j<4;j++){
+                                    double dx=corners[j][0]-cx,dy=corners[j][1]-cy;
+                                    corners[j][0]=cx+dx*co-dy*si;
+                                    corners[j][1]=cy+dx*si+dy*co;
+                                }
+                                previousAngle=angle;
+                                repaint();
+                                return;
+                            }
                             if(moving<0) return;
                             double nx=Math.max(0,Math.min(view[0].getWidth()-1,(e.getX()-ox)/scale));
                             double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
@@ -82,7 +109,15 @@ public final class OutputPerspectiveEditor {
                             }
                             repaint();
                         }
-                        public void mouseReleased(MouseEvent e) {moving=-1;}
+                        public void mouseReleased(MouseEvent e) {moving=-1;rotating=false;}
+                        public void mouseMoved(MouseEvent e) {
+                            double x=(e.getX()-ox)/scale,y=(e.getY()-oy)/scale;
+                            double nearest=Double.MAX_VALUE;
+                            for(int j=0;j<4;j++) nearest=Math.min(nearest,Math.hypot(x-corners[j][0],y-corners[j][1]));
+                            double px=nearest*scale;
+                            setCursor(Cursor.getPredefinedCursor(px>13 && px<=42 ? Cursor.HAND_CURSOR :
+                                px<=13 ? Cursor.CROSSHAIR_CURSOR : Cursor.DEFAULT_CURSOR));
+                        }
                     };
                     addMouseListener(mouse);addMouseMotionListener(mouse);
                 }
@@ -139,6 +174,9 @@ public final class OutputPerspectiveEditor {
             JPanel bottom=new JPanel(new BorderLayout());
             JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
             options.add(perspective);options.add(grid);options.add(fullGrid);
+            JLabel rotationHint = new JLabel("Rotate crop: drag just outside a corner");
+            rotationHint.setToolTipText("Hover 13-42 pixels outside a corner until the hand cursor appears, then drag to rotate the crop box.");
+            options.add(rotationHint);
             JButton rotateLeft = new JButton("Rotate Left 90°");
             JButton rotateRight = new JButton("Rotate Right 90°");
             java.util.function.IntConsumer rotate = direction -> {
