@@ -944,6 +944,13 @@ public final class FaceCropPro {
         worker.execute();
     }
 
+    private File savedManualPreview(String path, int w, int h) {
+        File source = new File(path);
+        String key = source.getAbsolutePath()+"|"+source.lastModified()+"|"+w+"x"+h;
+        File folder = new File(System.getProperty("user.home"), ".face-crop-pro/manual-crops");
+        return new File(folder, java.util.UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString()+".png");
+    }
+
     private void generateCropPreviews() {
         if (files.isEmpty()) return;
         final int generation = ++previewGeneration;
@@ -964,6 +971,8 @@ public final class FaceCropPro {
                 int i=0;
                 for (String path:paths) {
                     if (generation!=previewGeneration) break;
+                    File saved = savedManualPreview(path,outW,outH);
+                    if(saved.isFile()) { previewFiles.put(path,saved); publish(path); i++; continue; }
                     Mat image=Imgcodecs.imread(path), crop=null;
                     try {
                         if(image.empty()) { publish(path); continue; }
@@ -1087,8 +1096,25 @@ public final class FaceCropPro {
             OutputPerspectiveEditor.open(frame, new File(previewKey), editableTarget,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
-                    refreshPreviewIcon(previewKey, editableTarget);
-                    status.setText("Adjustment saved for final cropping: " + new File(previewKey).getName());
+                    try {
+                        File persistent = savedManualPreview(previewKey, ((Number)width.getValue()).intValue(), ((Number)height.getValue()).intValue());
+                        persistent.getParentFile().mkdirs();
+                        java.nio.file.Files.copy(editableTarget.toPath(), persistent.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        previewFiles.put(previewKey,persistent);
+                        refreshPreviewIcon(previewKey,persistent);
+                        status.setText("Manual crop saved permanently: "+new File(previewKey).getName());
+                    } catch(Exception ex) {
+                        refreshPreviewIcon(previewKey,editableTarget);
+                        status.setText("Crop saved for session only: "+ex.getMessage());
+                    }
+                }, () -> {
+                    int index=previewList.getSelectedIndex();
+                    if(index<0) index=previewModel.indexOf(previewKey);
+                    if(index>=0 && index+1<previewModel.size()) {
+                        previewList.setSelectedIndex(index+1);
+                        previewList.ensureIndexIsVisible(index+1);
+                        editSelectedOutput();
+                    } else JOptionPane.showMessageDialog(frame,"Last photo reached.");
                 });
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
