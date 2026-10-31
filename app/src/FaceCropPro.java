@@ -21,6 +21,7 @@ public final class FaceCropPro {
     private final JButton process = new JButton("Start Cropping");
     private final JTextField inputPath = new JTextField();
     private final JTextField outputPath = new JTextField();
+    private final JLabel outputFolderFeedback = new JLabel("  Enter a folder path and press Enter");
     private final JButton cancel = new JButton("Cancel");
     private final JButton retry = new JButton("Retry Failed");
     private final JProgressBar progress = new JProgressBar(0, 100);
@@ -158,12 +159,29 @@ public final class FaceCropPro {
         outputRow.add(new JLabel("Output:"), BorderLayout.WEST);
         outputPath.setToolTipText("Paste an output folder path and press Enter");
         outputPath.addActionListener(e -> {
-            File folder=new File(outputPath.getText().trim().replace(String.valueOf((char)34),""));
-            if(folder.isDirectory()) status.setText("Output folder ready: "+folder.getAbsolutePath());
-            else status.setText("Output folder does not exist: "+folder.getAbsolutePath());
+            String typed = outputPath.getText().trim().replace(String.valueOf((char)34),"");
+            File folder = new File(typed);
+            if (typed.isEmpty()) {
+                outputFolderFeedback.setText("  ! Enter an output folder");
+                outputFolderFeedback.setForeground(new Color(190, 80, 30));
+                status.setText("Please enter an output folder path.");
+            } else if (folder.isDirectory()) {
+                outputFolderFeedback.setText("  \\u2713 Output folder ready");
+                outputFolderFeedback.setForeground(new Color(20, 145, 100));
+                status.setText("Output folder confirmed: " + folder.getAbsolutePath());
+            } else if (!folder.exists()) {
+                outputFolderFeedback.setText("  \\u2713 New folder - will be created when cropping");
+                outputFolderFeedback.setForeground(new Color(20, 145, 100));
+                status.setText("Output path accepted. Folder will be created when cropping starts: " + folder.getAbsolutePath());
+            } else {
+                outputFolderFeedback.setText("  ! Invalid output folder");
+                outputFolderFeedback.setForeground(new Color(190, 65, 45));
+                status.setText("Output path is not a folder: " + folder.getAbsolutePath());
+            }
         });
         outputRow.add(outputPath, BorderLayout.CENTER);
-        outputRow.add(new JLabel("Paste path and press Enter",SwingConstants.RIGHT),BorderLayout.EAST);
+        outputFolderFeedback.setFont(outputFolderFeedback.getFont().deriveFont(Font.PLAIN, 11f));
+        outputRow.add(outputFolderFeedback, BorderLayout.EAST);
         folders.add(inputRow);
         folders.add(outputRow);
         JPanel topControls = new JPanel(new BorderLayout(4, 4));
@@ -292,7 +310,14 @@ public final class FaceCropPro {
         footer.add(footerTop, BorderLayout.NORTH);
         progress.setStringPainted(true);
         footer.add(progress, BorderLayout.CENTER);
-        footer.add(status, BorderLayout.SOUTH);
+        JPanel footerBottom = new JPanel(new BorderLayout(8, 0));
+        footerBottom.add(status, BorderLayout.CENTER);
+        JLabel credit = new JLabel("Developed by Mubashir  |  For Printo Cards and Technologies");
+        credit.setFont(credit.getFont().deriveFont(Font.PLAIN, 10f));
+        credit.setForeground(new Color(125, 135, 145));
+        credit.setToolTipText("Face Crop Pro - developed by Mubashir for Printo Cards and Technologies");
+        footerBottom.add(credit, BorderLayout.EAST);
+        footer.add(footerBottom, BorderLayout.SOUTH);
         root.add(footer, BorderLayout.SOUTH);
         frame.setContentPane(root);
         applyAccent();
