@@ -96,8 +96,8 @@ public final class FaceCropEngine {
             throw new IllegalArgumentException("Invalid crop inputs");
         // Keep head near the upper third while avoiding oversized margins.
         double centerX = face.x + face.width * 0.5;
-        double desiredTop = face.y - face.height * 0.48;
-        double desiredHeight = face.height * 2.30;
+        double desiredTop = face.y - face.height * 0.58;
+        double desiredHeight = face.height * 2.85;
         double desiredWidth = desiredHeight * ratio;
         if (desiredWidth < face.width * 1.45) {
             desiredWidth = face.width * 1.45;
