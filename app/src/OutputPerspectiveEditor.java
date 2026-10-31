@@ -20,7 +20,7 @@ import org.opencv.imgproc.Imgproc;
 public final class OutputPerspectiveEditor {
     private OutputPerspectiveEditor() {}
     private static final java.util.prefs.Preferences PREFS = java.util.prefs.Preferences.userNodeForPackage(OutputPerspectiveEditor.class);
-    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext) {
+    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext, File stateFile) {
         try {
             BufferedImage source = ImageIO.read(original);
             if (source == null) throw new IllegalArgumentException("Cannot read output image");
@@ -31,7 +31,7 @@ public final class OutputPerspectiveEditor {
             double cropHeight = Math.min(source.getHeight() * .85, source.getWidth() * .85 * height / width);
             double cropWidth = cropHeight * width / height;
             double x0 = (source.getWidth()-cropWidth)/2, y0=(source.getHeight()-cropHeight)/2;
-            try {
+            if(stateFile == null || !stateFile.isFile()) try {
                 FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
                 Mat full=Imgcodecs.imread(original.getAbsolutePath());
                 try {
@@ -48,6 +48,34 @@ public final class OutputPerspectiveEditor {
             final double initialX=x0, initialY=y0, initialW=cropWidth, initialH=cropHeight;
             double[][] corners = {{x0,y0},{x0+cropWidth,y0},
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
+            if(stateFile != null && stateFile.isFile()) {
+                try (java.io.FileInputStream stream = new java.io.FileInputStream(stateFile)) {
+                    java.util.Properties state = new java.util.Properties();
+                    state.load(stream);
+                    quarterTurns[0] = Integer.parseInt(state.getProperty("turns","0"));
+                    for(int k=0;k<4;k++) {
+                        corners[k][0] = Double.parseDouble(state.getProperty("x"+k));
+                        corners[k][1] = Double.parseDouble(state.getProperty("y"+k));
+                    }
+                    if(quarterTurns[0]!=0) {
+                        BufferedImage rotated=source;
+                        for(int t=0;t<quarterTurns[0];t++) {
+                            BufferedImage next=new BufferedImage(rotated.getHeight(),rotated.getWidth(),BufferedImage.TYPE_INT_RGB);
+                            Graphics2D gg=next.createGraphics();
+                            gg.translate(next.getWidth(),0);gg.rotate(Math.PI/2);
+                            gg.drawImage(rotated,0,0,null);gg.dispose();rotated=next;
+                        }
+                        view[0]=rotated;
+                    }
+                } catch(Exception badState) {
+                    quarterTurns[0]=0;
+                    view[0]=source;
+                    corners[0]=new double[]{initialX,initialY};
+                    corners[1]=new double[]{initialX+initialW,initialY};
+                    corners[2]=new double[]{initialX+initialW,initialY+initialH};
+                    corners[3]=new double[]{initialX,initialY+initialH};
+                }
+            }
             JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners", PREFS.getBoolean("perspective",false));
             JCheckBox grid = new JCheckBox("Show 3 x 3 grid", PREFS.getBoolean("grid",false));
             JCheckBox fullGrid = new JCheckBox("Grid across full image", PREFS.getBoolean("fullGrid",false));
@@ -239,6 +267,18 @@ public final class OutputPerspectiveEditor {
                     Imgproc.warpPerspective(input,transformed,matrix,new Size(width,height));
                     if(!Imgcodecs.imwrite(output.getAbsolutePath(),transformed))
                         throw new IllegalStateException("Could not save output");
+                    if(stateFile!=null) {
+                        java.util.Properties state=new java.util.Properties();
+                        state.setProperty("turns",String.valueOf(quarterTurns[0]));
+                        for(int k=0;k<4;k++) {
+                            state.setProperty("x"+k,String.valueOf(corners[k][0]));
+                            state.setProperty("y"+k,String.valueOf(corners[k][1]));
+                        }
+                        stateFile.getParentFile().mkdirs();
+                        try(java.io.FileOutputStream stream=new java.io.FileOutputStream(stateFile)) {
+                            state.store(stream,"Face Crop Pro manual adjustment");
+                        }
+                    }
                     dialog.dispose();onSaved.run();if(advance[0] && onNext!=null) SwingUtilities.invokeLater(onNext);
                 } catch(Exception ex) {
                     JOptionPane.showMessageDialog(dialog,ex.getMessage(),"Save failed",JOptionPane.ERROR_MESSAGE);
