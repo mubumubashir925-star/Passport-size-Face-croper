@@ -261,10 +261,13 @@ public final class OutputPerspectiveEditor {
                         new Point(corners[1][0],corners[1][1]),
                         new Point(corners[2][0],corners[2][1]),
                         new Point(corners[3][0],corners[3][1]));
-                    to.fromArray(new Point(0,0),new Point(width-1,0),
-                        new Point(width-1,height-1),new Point(0,height-1));
+                    // Preserve the manually selected area proportions instead of forcing the preset ratio.
+                    int freeW=Math.max(1,(int)Math.round((Math.hypot(corners[1][0]-corners[0][0],corners[1][1]-corners[0][1])+Math.hypot(corners[2][0]-corners[3][0],corners[2][1]-corners[3][1]))/2));
+                    int freeH=Math.max(1,(int)Math.round((Math.hypot(corners[3][0]-corners[0][0],corners[3][1]-corners[0][1])+Math.hypot(corners[2][0]-corners[1][0],corners[2][1]-corners[1][1]))/2));
+                    to.fromArray(new Point(0,0),new Point(freeW-1,0),
+                        new Point(freeW-1,freeH-1),new Point(0,freeH-1));
                     matrix=Imgproc.getPerspectiveTransform(from,to);
-                    Imgproc.warpPerspective(input,transformed,matrix,new Size(width,height));
+                    Imgproc.warpPerspective(input,transformed,matrix,new Size(freeW,freeH));
                     if(!Imgcodecs.imwrite(output.getAbsolutePath(),transformed))
                         throw new IllegalStateException("Could not save output");
                     if(stateFile!=null) {
