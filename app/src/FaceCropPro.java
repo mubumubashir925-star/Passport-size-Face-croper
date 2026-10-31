@@ -238,7 +238,13 @@ public final class FaceCropPro {
                 for (String path : selected) {
                     files.removeElement(path);
                     manualCrops.remove(path);
+                    previewFiles.remove(path);
+                    previewIcons.remove(path);
+                    previewModel.removeElement(path);
                 }
+                // Cancel the old background generation and restart only with remaining inputs.
+                ++previewGeneration;
+                if (!files.isEmpty()) generateCropPreviews();
                 updateCount();
                 status.setText("Removed " + selected.size() + " image(s) from list; original files are safe.");
             }
@@ -811,6 +817,7 @@ public final class FaceCropPro {
                         throw new IllegalStateException("Cannot create output folder");
                     for (String name : selected) {
                         if (stopRequested) break;
+                        if (!files.contains(name)) continue;
                         Mat image = new Mat();
                         Mat cropped = null;
                         try {
@@ -951,7 +958,7 @@ public final class FaceCropPro {
     }
     private File savedManualPreview(String path, int w, int h) {
         File source = new File(path);
-        String key = source.getAbsolutePath()+"|"+source.lastModified()+"|"+w+"x"+h;
+        String key = source.getAbsolutePath()+"|"+w+"x"+h;
         File folder = new File(System.getProperty("user.home"), ".face-crop-pro/manual-crops");
         return new File(folder, java.util.UUID.nameUUIDFromBytes(key.getBytes(java.nio.charset.StandardCharsets.UTF_8)).toString()+".png");
     }
@@ -981,6 +988,7 @@ public final class FaceCropPro {
                             Thread.currentThread().interrupt(); return null;
                         }
                     }
+                    if (!files.contains(path)) continue;
                     File saved = savedManualPreview(path,outW,outH);
                     if(saved.isFile()) { previewFiles.put(path,saved); publish(path); i++; continue; }
                     Mat image=Imgcodecs.imread(path), crop=null;
@@ -1008,6 +1016,7 @@ public final class FaceCropPro {
             protected void process(java.util.List<String> items) {
                 if(generation!=previewGeneration) return;
                 for(String path:items) {
+                    if (!files.contains(path)) continue;
                     File target=previewFiles.get(path);
                     try {
                         java.awt.image.BufferedImage img=target == null ? null : javax.imageio.ImageIO.read(target);
