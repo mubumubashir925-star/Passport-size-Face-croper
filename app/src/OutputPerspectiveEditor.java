@@ -20,12 +20,12 @@ import org.opencv.imgproc.Imgproc;
 public final class OutputPerspectiveEditor {
     private OutputPerspectiveEditor() {}
     private static final java.util.prefs.Preferences PREFS = java.util.prefs.Preferences.userNodeForPackage(OutputPerspectiveEditor.class);
-    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext, File stateFile) {
+    public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext, File stateFile, int autoTurns) {
         try {
             BufferedImage source = ImageIO.read(original);
             if (source == null) throw new IllegalArgumentException("Cannot read output image");
             final BufferedImage[] view = {source};
-            final int[] quarterTurns = {0};
+            final int[] quarterTurns = {Math.max(0,autoTurns)%4};
             JDialog dialog = new JDialog(owner, "Four-corner perspective adjustment - " + output.getName(),
                 Dialog.ModalityType.APPLICATION_MODAL);
             double cropHeight = Math.min(source.getHeight() * .85, source.getWidth() * .85 * height / width);
@@ -48,6 +48,22 @@ public final class OutputPerspectiveEditor {
             final double initialX=x0, initialY=y0, initialW=cropWidth, initialH=cropHeight;
             double[][] corners = {{x0,y0},{x0+cropWidth,y0},
                 {x0+cropWidth,y0+cropHeight},{x0,y0+cropHeight}};
+            if(stateFile == null || !stateFile.isFile()) {
+                if(quarterTurns[0]!=0) {
+                    BufferedImage rotated=source;
+                    for(int t=0;t<quarterTurns[0];t++) {
+                        BufferedImage next=new BufferedImage(rotated.getHeight(),rotated.getWidth(),BufferedImage.TYPE_INT_RGB);
+                        Graphics2D gg=next.createGraphics();gg.translate(next.getWidth(),0);gg.rotate(Math.PI/2);
+                        gg.drawImage(rotated,0,0,null);gg.dispose();rotated=next;
+                    }
+                    view[0]=rotated;
+                    double hh=Math.min(rotated.getHeight()*.85,rotated.getWidth()*.85*height/width);
+                    double ww=hh*width/height;
+                    double xx=(rotated.getWidth()-ww)/2,yy=(rotated.getHeight()-hh)/2;
+                    corners[0]=new double[]{xx,yy};corners[1]=new double[]{xx+ww,yy};
+                    corners[2]=new double[]{xx+ww,yy+hh};corners[3]=new double[]{xx,yy+hh};
+                }
+            }
             if(stateFile != null && stateFile.isFile()) {
                 try (java.io.FileInputStream stream = new java.io.FileInputStream(stateFile)) {
                     java.util.Properties state = new java.util.Properties();
