@@ -1081,61 +1081,54 @@ public final class FaceCropPro {
         }.execute();
     }
 
-        manualEditorOpen = true;
-        final int outW=((Number)width.getValue()).intValue();
-        final int outH=((Number)height.getValue()).intValue();
-        final File manualState=savedManualState(previewKey,outW,outH);
-        final JDialog loading=new JDialog(frame,"Opening Manual Crop",false);
-        JPanel loadingPanel=new JPanel(new BorderLayout(12,12));
-        loadingPanel.setBorder(BorderFactory.createEmptyBorder(18,22,18,22));
-        JProgressBar busy=new JProgressBar();
-        busy.setIndeterminate(true);
-        loadingPanel.add(new JLabel("Preparing photo for manual crop..."),BorderLayout.NORTH);
-        loadingPanel.add(busy,BorderLayout.CENTER);
-        loading.setContentPane(loadingPanel);
-        loading.setSize(340,110);
-        loading.setLocationRelativeTo(frame);
-        loading.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
-        loading.setVisible(true);
-        new SwingWorker<ManualCropPreparation,Void>() {
-            protected ManualCropPreparation doInBackground() throws Exception {
+    private void editSelectedOutput() {
+        if (manualEditorOpen) return;
+        String selectedPath = previewList.getSelectedValue();
+        if (selectedPath == null) selectedPath = fileList.getSelectedValue();
+        final String previewKey = selectedPath;
+        File target = previewKey == null ? null : previewFiles.get(previewKey);
+        if (previewKey == null) {
+            JOptionPane.showMessageDialog(frame, "Select an image from Crop Preview first.");
+            return;
+        }
+        if (target == null || !target.isFile()) {
+            try {
                 ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
-                File target=previewFiles.get(previewKey);
-                if(target==null || !target.isFile()) {
-                    if(previewDirectory==null) previewDirectory=java.nio.file.Files.createTempDirectory("facecrop-manual-").toFile();
-                    target=new File(previewDirectory,"manual-"+Integer.toHexString(previewKey.hashCode())+".jpg");
-                    Mat original=Imgcodecs.imread(previewKey);
-                    try {
-                        if(original.empty()) throw new IOException("Cannot read source photo");
-                        Mat initial=new Mat();
-                        try {
-                            Imgproc.resize(original,initial,new org.opencv.core.Size(outW,outH));
-                            if(!Imgcodecs.imwrite(target.getAbsolutePath(),initial)) throw new IOException("Cannot create manual crop preview");
-                        } finally {initial.release();}
-                    } finally {original.release();}
-                    previewFiles.put(previewKey,target);
-                }
-                int turns=0;
-                if(!manualState.isFile()) {
-                    Mat raw=Imgcodecs.imread(previewKey);
-                    try {
-                        if(!raw.empty()) {
-                            FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
-                            int orientation=detector.detectBestRotation(raw);
-                            if(orientation==Core.ROTATE_90_CLOCKWISE) turns=1;
-                            else if(orientation==Core.ROTATE_180) turns=2;
-                            else if(orientation==Core.ROTATE_90_COUNTERCLOCKWISE) turns=3;
-                        }
-                    } finally {raw.release();}
-                }
-                return new ManualCropPreparation(target,turns);
-            }
-            protected void done() {
-                loading.dispose();
+                if (previewDirectory == null) previewDirectory = java.nio.file.Files.createTempDirectory("facecrop-manual-").toFile();
+                target = new File(previewDirectory, "manual-" + Integer.toHexString(previewKey.hashCode()) + ".jpg");
+                Mat original = Imgcodecs.imread(previewKey);
                 try {
-                    final ManualCropPreparation prepared=get();
-                    final File editableTarget=prepared.target;
+                    if (original.empty()) throw new IOException("Cannot read source photo");
+                    Mat initial = new Mat();
                     try {
+                        Imgproc.resize(original, initial, new org.opencv.core.Size(((Number)width.getValue()).intValue(), ((Number)height.getValue()).intValue()));
+                        if (!Imgcodecs.imwrite(target.getAbsolutePath(), initial)) throw new IOException("Cannot create manual crop preview");
+                    } finally { initial.release(); }
+                } finally { original.release(); }
+                previewFiles.put(previewKey,target);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(frame, "Cannot open manual crop: " + ex.getMessage());
+                return;
+            }
+        }
+        final File editableTarget = target;
+        try {
+            ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+            int autoTurns=0;
+            File manualState=savedManualState(previewKey,((Number)width.getValue()).intValue(),((Number)height.getValue()).intValue());
+            if(!manualState.isFile()) {
+                Mat raw=Imgcodecs.imread(previewKey);
+                try {
+                    if(!raw.empty()) {
+                        FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
+                        int orientation=detector.detectBestRotation(raw);
+                        if(orientation==Core.ROTATE_90_CLOCKWISE) autoTurns=1;
+                        else if(orientation==Core.ROTATE_180) autoTurns=2;
+                        else if(orientation==Core.ROTATE_90_COUNTERCLOCKWISE) autoTurns=3;
+                    }
+                } finally {raw.release();}
+            }
+            manualEditorOpen = true;
             OutputPerspectiveEditor.open(frame, new File(previewKey), editableTarget,
                 ((Number)width.getValue()).intValue(),
                 ((Number)height.getValue()).intValue(), () -> {
@@ -1158,24 +1151,13 @@ public final class FaceCropPro {
                         previewList.ensureIndexIsVisible(index+1);
                         editSelectedOutput();
                     } else JOptionPane.showMessageDialog(frame,"Last photo reached.");
-                }, manualState,prepared.turns);
-
-                    } finally {
-                        manualEditorOpen=false;
-                    }
-                } catch(Exception ex) {
-                    manualEditorOpen=false;
-                    JOptionPane.showMessageDialog(frame,"Cannot open manual crop: "+ex.getMessage(),"Manual Crop",JOptionPane.ERROR_MESSAGE);
-                }
-            }
-        }.execute();
+                }, manualState,autoTurns);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
+        } finally {
+            manualEditorOpen = false;
+        }
     }
-    private static final class ManualCropPreparation {
-        final File target;
-        final int turns;
-        ManualCropPreparation(File target,int turns) {this.target=target;this.turns=turns;}
-    }
-
 
     private void refreshPreviewIcon(String path, File target) {
         try {
