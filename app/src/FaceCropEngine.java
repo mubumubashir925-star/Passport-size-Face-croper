@@ -134,12 +134,11 @@ public final class FaceCropEngine {
      * Returns a finished crop; original source Mat remains untouched.
      */
     /** Compare every quarter-turn: Haar can mistake a sideways mouth for a face. */
-    public Mat cropAutoOriented(Mat source, int outW, int outH) {
+    public int detectBestRotation(Mat source) {
         int[] rotations = {-1, Core.ROTATE_90_CLOCKWISE,
             Core.ROTATE_90_COUNTERCLOCKWISE, Core.ROTATE_180};
         double bestScore = -1;
         int bestRotation = -1;
-        Rect bestFace = null;
         for (int rotation : rotations) {
             Mat oriented = new Mat();
             try {
@@ -159,18 +158,28 @@ public final class FaceCropEngine {
                     if (score > bestScore) {
                         bestScore = score;
                         bestRotation = rotation;
-                        bestFace = face;
                     }
                 }
             } finally { oriented.release(); }
         }
-        if (bestFace == null) return null;
-        Mat oriented = new Mat();
+        return bestScore < 0 ? -1 : bestRotation;
+    }
+
+    public Mat cropAutoOriented(Mat source, int outW, int outH) {
+        int rotation=detectBestRotation(source);
+        if(rotation == -1) {
+            // An upright face may still be detected; keep the original fallback.
+            java.util.List<Rect> faces=detect(source);
+            if(faces.isEmpty()) return null;
+            return cropAligned(source,faces.get(0),outW,outH);
+        }
+        Mat oriented=new Mat();
         try {
-            if (bestRotation == -1) source.copyTo(oriented);
-            else Core.rotate(source, oriented, bestRotation);
-            return cropAligned(oriented, bestFace, outW, outH);
-        } finally { oriented.release(); }
+            Core.rotate(source,oriented,rotation);
+            java.util.List<Rect> faces=detect(oriented);
+            if(faces.isEmpty()) return null;
+            return cropAligned(oriented,faces.get(0),outW,outH);
+        } finally {oriented.release();}
     }
 
     /**
