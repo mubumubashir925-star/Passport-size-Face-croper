@@ -1113,6 +1113,20 @@ public final class FaceCropPro {
         final File editableTarget = target;
         try {
             ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
+            int autoTurns=0;
+            File manualState=savedManualState(previewKey,((Number)width.getValue()).intValue(),((Number)height.getValue()).intValue());
+            if(!manualState.isFile()) {
+                Mat raw=Imgcodecs.imread(previewKey);
+                try {
+                    if(!raw.empty()) {
+                        FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
+                        int orientation=detector.detectBestRotation(raw);
+                        if(orientation==Core.ROTATE_90_CLOCKWISE) autoTurns=1;
+                        else if(orientation==Core.ROTATE_180) autoTurns=2;
+                        else if(orientation==Core.ROTATE_90_COUNTERCLOCKWISE) autoTurns=3;
+                    }
+                } finally {raw.release();}
+            }
             manualEditorOpen = true;
             OutputPerspectiveEditor.open(frame, new File(previewKey), editableTarget,
                 ((Number)width.getValue()).intValue(),
@@ -1136,7 +1150,7 @@ public final class FaceCropPro {
                         previewList.ensureIndexIsVisible(index+1);
                         editSelectedOutput();
                     } else JOptionPane.showMessageDialog(frame,"Last photo reached.");
-                }, savedManualState(previewKey,((Number)width.getValue()).intValue(),((Number)height.getValue()).intValue()));
+                }, manualState,autoTurns);
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(frame, ex.toString(), "Output editor error", JOptionPane.ERROR_MESSAGE);
         } finally {
