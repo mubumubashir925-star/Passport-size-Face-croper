@@ -171,14 +171,18 @@ public final class FaceCropEngine {
             // An upright face may still be detected; keep the original fallback.
             java.util.List<Rect> faces=detect(source);
             if(faces.isEmpty()) return null;
-            return cropAligned(source,faces.get(0),outW,outH);
+            Rect best=faces.get(0);
+            for(Rect face:faces) if(face.area()>best.area()) best=face;
+            return cropAligned(source,best,outW,outH);
         }
         Mat oriented=new Mat();
         try {
             Core.rotate(source,oriented,rotation);
             java.util.List<Rect> faces=detect(oriented);
             if(faces.isEmpty()) return null;
-            return cropAligned(oriented,faces.get(0),outW,outH);
+            Rect best=faces.get(0);
+            for(Rect face:faces) if(face.area()>best.area()) best=face;
+            return cropAligned(oriented,best,outW,outH);
         } finally {oriented.release();}
     }
 
