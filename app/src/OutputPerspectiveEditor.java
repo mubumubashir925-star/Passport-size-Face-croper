@@ -76,13 +76,15 @@ public final class OutputPerspectiveEditor {
                     corners[3]=new double[]{initialX,initialY+initialH};
                 }
             }
-            JCheckBox perspective = new JCheckBox("Perspective: independent 4 corners", PREFS.getBoolean("perspective",false));
+            JCheckBox perspective = new JCheckBox("Perspective", PREFS.getBoolean("perspective",false));
             JCheckBox grid = new JCheckBox("Show 3 x 3 grid", PREFS.getBoolean("grid",false));
             JCheckBox fullGrid = new JCheckBox("Grid across full image", PREFS.getBoolean("fullGrid",false));
             JPanel canvas = new JPanel() {
                 double scale, ox, oy;
                 int moving = -1;
                 boolean rotating = false;
+                boolean draggingBox = false;
+                double dragX, dragY;
                 double previousAngle = 0;
                 {
                     setBackground(new Color(30,33,38));
@@ -101,7 +103,15 @@ public final class OutputPerspectiveEditor {
                                 double cx=0,cy=0;
                                 for(int j=0;j<4;j++){cx+=corners[j][0];cy+=corners[j][1];}
                                 previousAngle=Math.atan2(y-cy/4,x-cx/4);
-                            } else if(distancePx>13) moving=-1;
+                            } else if(distancePx>13) {
+                                moving=-1;
+                                java.awt.geom.Path2D.Double polygon=new java.awt.geom.Path2D.Double();
+                                polygon.moveTo(corners[0][0],corners[0][1]);
+                                for(int j=1;j<4;j++) polygon.lineTo(corners[j][0],corners[j][1]);
+                                polygon.closePath();
+                                draggingBox=polygon.contains(x,y);
+                                dragX=x;dragY=y;
+                            }
                         }
                         public void mouseDragged(MouseEvent e) {
                             if (rotating) {
@@ -121,6 +131,16 @@ public final class OutputPerspectiveEditor {
                                 repaint();
                                 return;
                             }
+                            if(draggingBox) {
+                                double nx=(e.getX()-ox)/scale, ny=(e.getY()-oy)/scale;
+                                double dx=nx-dragX, dy=ny-dragY;
+                                double minX=Double.MAX_VALUE,maxX=-Double.MAX_VALUE,minY=Double.MAX_VALUE,maxY=-Double.MAX_VALUE;
+                                for(int j=0;j<4;j++){minX=Math.min(minX,corners[j][0]);maxX=Math.max(maxX,corners[j][0]);minY=Math.min(minY,corners[j][1]);maxY=Math.max(maxY,corners[j][1]);}
+                                dx=Math.max(-minX,Math.min(view[0].getWidth()-1-maxX,dx));
+                                dy=Math.max(-minY,Math.min(view[0].getHeight()-1-maxY,dy));
+                                for(int j=0;j<4;j++){corners[j][0]+=dx;corners[j][1]+=dy;}
+                                dragX+=dx;dragY+=dy;repaint();return;
+                            }
                             if(moving<0) return;
                             double nx=Math.max(0,Math.min(view[0].getWidth()-1,(e.getX()-ox)/scale));
                             double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
@@ -138,14 +158,18 @@ public final class OutputPerspectiveEditor {
                             }
                             repaint();
                         }
-                        public void mouseReleased(MouseEvent e) {moving=-1;rotating=false;}
+                        public void mouseReleased(MouseEvent e) {moving=-1;rotating=false;draggingBox=false;}
                         public void mouseMoved(MouseEvent e) {
                             double x=(e.getX()-ox)/scale,y=(e.getY()-oy)/scale;
                             double nearest=Double.MAX_VALUE;
                             for(int j=0;j<4;j++) nearest=Math.min(nearest,Math.hypot(x-corners[j][0],y-corners[j][1]));
                             double px=nearest*scale;
+                            java.awt.geom.Path2D.Double polygon=new java.awt.geom.Path2D.Double();
+                            polygon.moveTo(corners[0][0],corners[0][1]);
+                            for(int j=1;j<4;j++) polygon.lineTo(corners[j][0],corners[j][1]);
+                            polygon.closePath();
                             setCursor(Cursor.getPredefinedCursor(px>13 && px<=42 ? Cursor.HAND_CURSOR :
-                                px<=13 ? Cursor.CROSSHAIR_CURSOR : Cursor.DEFAULT_CURSOR));
+                                px<=13 ? Cursor.CROSSHAIR_CURSOR : polygon.contains(x,y) ? Cursor.MOVE_CURSOR : Cursor.DEFAULT_CURSOR));
                         }
                     };
                     addMouseListener(mouse);addMouseMotionListener(mouse);
@@ -240,7 +264,7 @@ public final class OutputPerspectiveEditor {
                 corners[3]=new double[]{initialX,initialY+initialH};canvas.repaint();
             });
             JButton cancel=new JButton("Cancel");cancel.addActionListener(e->dialog.dispose());
-            JButton save=new JButton("Save Adjusted Output");
+            JButton save=new JButton("Save");
             final boolean[] advance = {false};
             JButton saveNext = new JButton("Save & Next");
             saveNext.addActionListener(e -> {advance[0]=true;save.doClick();});
@@ -290,6 +314,18 @@ public final class OutputPerspectiveEditor {
                     if(matrix!=null) matrix.release();
                 }
             });
+            javax.swing.JRootPane root=dialog.getRootPane();
+            javax.swing.InputMap keys=root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+            javax.swing.ActionMap actions=root.getActionMap();
+            java.util.function.BiConsumer<String,Runnable> bind=(name,task)->actions.put(name,new AbstractAction(){public void actionPerformed(ActionEvent event){task.run();}});
+            keys.put(KeyStroke.getKeyStroke("ENTER"),"save");bind.accept("save",()->{advance[0]=false;save.doClick();});
+            keys.put(KeyStroke.getKeyStroke("control ENTER"),"saveNext");bind.accept("saveNext",()->saveNext.doClick());
+            keys.put(KeyStroke.getKeyStroke("ESCAPE"),"cancel");bind.accept("cancel",()->cancel.doClick());
+            keys.put(KeyStroke.getKeyStroke("P"),"perspective");bind.accept("perspective",()->perspective.doClick());
+            keys.put(KeyStroke.getKeyStroke("G"),"grid");bind.accept("grid",()->grid.doClick());
+            keys.put(KeyStroke.getKeyStroke("shift G"),"fullGrid");bind.accept("fullGrid",()->fullGrid.doClick());
+            keys.put(KeyStroke.getKeyStroke("control Z"),"reset");bind.accept("reset",()->reset.doClick());
+            save.setToolTipText("Save and close (Enter)");saveNext.setToolTipText("Save and open next photo (Ctrl+Enter)");
             buttons.add(reset);buttons.add(cancel);buttons.add(save);buttons.add(saveNext);
             bottom.add(buttons,BorderLayout.SOUTH);dialog.add(bottom,BorderLayout.SOUTH);
             dialog.setSize(850,700);dialog.setLocationRelativeTo(owner);dialog.setVisible(true);
