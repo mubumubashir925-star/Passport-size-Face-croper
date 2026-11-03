@@ -31,6 +31,6 @@ Source: "native-folder-picker.ps1"; DestDir: "{app}"
 Source: "runtime\\*"; DestDir: "{app}\\runtime"; Flags: recursesubdirs createallsubdirs
 [Icons]
 Name: "{group}\Face Crop Pro"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\facecrop.ico"
-Name: "{autodesktop}\Face Crop Pro"; Filename: "{app}\launch.bat"; WorkingDir: "{app}"; IconFilename: "{app}\facecrop.ico"; Tasks: desktopicon
+Name: "{autodesktop}\Face Crop Pro"; Filename: "{sys}\wscript.exe"; Parameters: """{app}\launch.vbs"""; WorkingDir: "{app}"; IconFilename: "{app}\facecrop.ico"; Tasks: desktopicon
 [Tasks]
 Name: desktopicon; Description: "Create a desktop shortcut"
