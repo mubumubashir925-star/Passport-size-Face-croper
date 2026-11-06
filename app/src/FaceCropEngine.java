@@ -98,7 +98,7 @@ public final class FaceCropEngine {
         // include hats, hair volume or the full shoulders, so face-only tight crops
         // can cut off headwear and produce an overly zoomed portrait.
         double centerX = face.x + face.width * 0.5;
-        double desiredTop = face.y - face.height * 0.95;
+        double desiredTop = face.y - face.height * 0.65;
         double desiredHeight = face.height * 3.50;
         double desiredWidth = desiredHeight * ratio;
         if (desiredWidth < face.width * 1.45) {
