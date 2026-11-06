@@ -94,10 +94,12 @@ public final class FaceCropEngine {
     public static Rect cropRect(Rect face, int imageW, int imageH, double ratio) {
         if (face == null || imageW <= 0 || imageH <= 0 || ratio <= 0)
             throw new IllegalArgumentException("Invalid crop inputs");
-        // Keep head near the upper third while avoiding oversized margins.
+        // Use a wider safety frame around the detected face. Haar face boxes do not
+        // include hats, hair volume or the full shoulders, so face-only tight crops
+        // can cut off headwear and produce an overly zoomed portrait.
         double centerX = face.x + face.width * 0.5;
-        double desiredTop = face.y - face.height * 0.58;
-        double desiredHeight = face.height * 2.85;
+        double desiredTop = face.y - face.height * 0.95;
+        double desiredHeight = face.height * 3.50;
         double desiredWidth = desiredHeight * ratio;
         if (desiredWidth < face.width * 1.45) {
             desiredWidth = face.width * 1.45;
