@@ -21,9 +21,39 @@ public final class OutputPerspectiveEditor {
     private OutputPerspectiveEditor() {}
     private static final java.util.prefs.Preferences PREFS = java.util.prefs.Preferences.userNodeForPackage(OutputPerspectiveEditor.class);
     public static void open(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext, File stateFile, int autoTurns) {
+        final JDialog loading = new JDialog(owner, "Opening Manual Crop", Dialog.ModalityType.APPLICATION_MODAL);
+        JPanel loadingPanel = new JPanel(new BorderLayout(10,10));
+        loadingPanel.setBorder(BorderFactory.createEmptyBorder(16,20,16,20));
+        loadingPanel.add(new JLabel("Loading photo for manual crop..."), BorderLayout.NORTH);
+        JProgressBar progress = new JProgressBar();
+        progress.setIndeterminate(true);
+        loadingPanel.add(progress, BorderLayout.CENTER);
+        loading.setContentPane(loadingPanel);
+        loading.setSize(330,105);
+        loading.setLocationRelativeTo(owner);
+        loading.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
+        SwingWorker<BufferedImage,Void> imageLoader = new SwingWorker<BufferedImage,Void>() {
+            protected BufferedImage doInBackground() throws Exception {
+                BufferedImage image = ImageIO.read(original);
+                if (image == null) throw new IllegalArgumentException("Cannot read output image");
+                return image;
+            }
+            protected void done() {
+                loading.dispose();
+                try {
+                    openLoaded(owner, original, output, width, height, onSaved, onNext, stateFile, autoTurns, get());
+                } catch(Exception ex) {
+                    Throwable cause = ex instanceof java.util.concurrent.ExecutionException && ex.getCause()!=null ? ex.getCause() : ex;
+                    JOptionPane.showMessageDialog(owner, cause.getMessage(), "Manual Crop", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        imageLoader.execute();
+        loading.setVisible(true);
+    }
+
+    private static void openLoaded(Window owner, File original, File output, int width, int height, Runnable onSaved, Runnable onNext, File stateFile, int autoTurns, BufferedImage source) {
         try {
-            BufferedImage source = ImageIO.read(original);
-            if (source == null) throw new IllegalArgumentException("Cannot read output image");
             final BufferedImage[] view = {source};
             final int[] quarterTurns = {Math.max(0,autoTurns)%4};
             JDialog dialog = new JDialog(owner, "Four-corner perspective adjustment - " + output.getName(),
@@ -79,6 +109,7 @@ public final class OutputPerspectiveEditor {
                 }
             }
             JCheckBox perspective = new JCheckBox("Perspective", PREFS.getBoolean("perspective",false));
+            JCheckBox keepAspect = new JCheckBox("Keep preset aspect ratio", PREFS.getBoolean("keepAspectRatio",true));
             JCheckBox grid = new JCheckBox("Show 3 x 3 grid", PREFS.getBoolean("grid",false));
             JCheckBox fullGrid = new JCheckBox("Grid across full image", PREFS.getBoolean("fullGrid",false));
             JPanel canvas = new JPanel() {
@@ -228,7 +259,8 @@ public final class OutputPerspectiveEditor {
             dialog.add(canvas,BorderLayout.CENTER);
             JPanel bottom=new JPanel(new BorderLayout());
             JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
-            options.add(perspective);options.add(grid);options.add(fullGrid);
+            options.add(perspective);options.add(keepAspect);options.add(grid);options.add(fullGrid);
+            keepAspect.setToolTipText("Save the selected crop using the currently selected preset width-to-height ratio (R)");
             JLabel rotationHint = new JLabel("Rotate crop: drag just outside a corner");
             rotationHint.setToolTipText("Hover 13-42 pixels outside a corner until the hand cursor appears, then drag to rotate the crop box.");
             options.add(rotationHint);
@@ -255,6 +287,7 @@ public final class OutputPerspectiveEditor {
             rotateLeft.setToolTipText("Rotate left 90 degrees"); rotateRight.setToolTipText("Rotate right 90 degrees");
             options.add(rotateLeft); options.add(rotateRight);
             perspective.addActionListener(e -> PREFS.putBoolean("perspective",perspective.isSelected()));
+            keepAspect.addActionListener(e -> PREFS.putBoolean("keepAspectRatio",keepAspect.isSelected()));
             grid.addActionListener(e->{PREFS.putBoolean("grid",grid.isSelected());canvas.repaint();});
             fullGrid.addActionListener(e->{PREFS.putBoolean("fullGrid",fullGrid.isSelected());canvas.repaint();});
             bottom.add(options,BorderLayout.NORTH);
@@ -290,10 +323,12 @@ public final class OutputPerspectiveEditor {
                     // Preserve the manually selected area proportions instead of forcing the preset ratio.
                     int freeW=Math.max(1,(int)Math.round((Math.hypot(corners[1][0]-corners[0][0],corners[1][1]-corners[0][1])+Math.hypot(corners[2][0]-corners[3][0],corners[2][1]-corners[3][1]))/2));
                     int freeH=Math.max(1,(int)Math.round((Math.hypot(corners[3][0]-corners[0][0],corners[3][1]-corners[0][1])+Math.hypot(corners[2][0]-corners[1][0],corners[2][1]-corners[1][1]))/2));
-                    to.fromArray(new Point(0,0),new Point(freeW-1,0),
-                        new Point(freeW-1,freeH-1),new Point(0,freeH-1));
+                    int resultW = keepAspect.isSelected() ? width : freeW;
+                    int resultH = keepAspect.isSelected() ? height : freeH;
+                    to.fromArray(new Point(0,0),new Point(resultW-1,0),
+                        new Point(resultW-1,resultH-1),new Point(0,resultH-1));
                     matrix=Imgproc.getPerspectiveTransform(from,to);
-                    Imgproc.warpPerspective(input,transformed,matrix,new Size(freeW,freeH));
+                    Imgproc.warpPerspective(input,transformed,matrix,new Size(resultW,resultH));
                     if(!Imgcodecs.imwrite(output.getAbsolutePath(),transformed))
                         throw new IllegalStateException("Could not save output");
                     if(stateFile!=null) {
@@ -324,6 +359,7 @@ public final class OutputPerspectiveEditor {
             keys.put(KeyStroke.getKeyStroke("control ENTER"),"saveNext");bind.accept("saveNext",()->saveNext.doClick());
             keys.put(KeyStroke.getKeyStroke("ESCAPE"),"cancel");bind.accept("cancel",()->cancel.doClick());
             keys.put(KeyStroke.getKeyStroke("P"),"perspective");bind.accept("perspective",()->perspective.doClick());
+            keys.put(KeyStroke.getKeyStroke("R"),"keepAspect");bind.accept("keepAspect",()->keepAspect.doClick());
             keys.put(KeyStroke.getKeyStroke("G"),"grid");bind.accept("grid",()->grid.doClick());
             keys.put(KeyStroke.getKeyStroke("shift G"),"fullGrid");bind.accept("fullGrid",()->fullGrid.doClick());
             keys.put(KeyStroke.getKeyStroke("control Z"),"reset");bind.accept("reset",()->reset.doClick());
