@@ -282,6 +282,14 @@ public final class FaceCropPro {
                 }
             }
         });
+        previewList.getInputMap(JComponent.WHEN_FOCUSED).put(KeyStroke.getKeyStroke("ENTER"), "openManualCrop");
+        previewList.getActionMap().put("openManualCrop", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                if (previewList.getSelectedValue() != null) editSelectedOutput();
+            }
+        });
+        previewList.setToolTipText("Select a crop and press Enter to open Manual Crop");
+
         previewList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 String selected = previewList.getSelectedValue();
