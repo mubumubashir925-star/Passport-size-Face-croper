@@ -37,9 +37,18 @@ jobs:
         run: |
           $v = $env:RELEASE_VERSION
           if ($v -notmatch '^[0-9]+[.][0-9]+[.][0-9]+$') { throw "Version must be like 0.2.0" }
-          $java = Get-Content app/src/AppUpdates.java -Raw
+          # Locate the Java source that actually declares the app VERSION.
+          $versionMatches = @(Get-ChildItem 'app/src' -Recurse -File -Filter '*.java' |
+            Select-String -Pattern 'VERSION\s*=\s*"[^"]+"' |
+            Select-Object -ExpandProperty Path -Unique)
+          if ($versionMatches.Count -ne 1) {
+            throw "Expected exactly one Java VERSION declaration under app/src, found $($versionMatches.Count): $($versionMatches -join ', ')"
+          }
+          $javaPath = $versionMatches[0]
+          $java = Get-Content $javaPath -Raw
           $java = [regex]::Replace($java, 'VERSION\s*=\s*"[^"]+"', ('VERSION = "' + $v + '"'))
-          [System.IO.File]::WriteAllText((Join-Path $PWD 'app/src/AppUpdates.java'), $java, (New-Object System.Text.UTF8Encoding($false)))
+          [System.IO.File]::WriteAllText($javaPath, $java, (New-Object System.Text.UTF8Encoding($false)))
+          Write-Host "Updated application version in $javaPath"
           $iss = Get-Content installer.iss -Raw
           $iss = $iss -replace '#define AppVersion "[^"]+"', ('#define AppVersion "' + $v + '"')
           [System.IO.File]::WriteAllText((Join-Path $PWD 'installer.iss'), $iss, (New-Object System.Text.UTF8Encoding($false)))
