@@ -992,11 +992,8 @@ public final class FaceCropPro {
                 int i=0;
                 for (String path:paths) {
                     if (generation!=previewGeneration) break;
-                    while(manualEditorOpen && generation==previewGeneration) {
-                        try {Thread.sleep(120);} catch(InterruptedException interrupted) {
-                            Thread.currentThread().interrupt(); return null;
-                        }
-                    }
+                    // Keep automatic crop previews running in this background worker,
+                    // even while the user is adjusting another photo manually.
                     if (!files.contains(path)) continue;
                     File saved = savedManualPreview(path,outW,outH);
                     if(saved.isFile()) { previewFiles.put(path,saved); publish(path); i++; continue; }
@@ -1105,15 +1102,19 @@ public final class FaceCropPro {
         final JDialog loading=new JDialog(frame,"Opening Manual Crop",false);
         JPanel panel=new JPanel(new BorderLayout(12,12));
         panel.setBorder(BorderFactory.createEmptyBorder(18,22,18,22));
+        JLabel progressText=new JLabel("Preparing photo for manual crop...");
         JProgressBar bar=new JProgressBar();bar.setIndeterminate(true);
-        panel.add(new JLabel("Preparing photo for manual crop..."),BorderLayout.NORTH);
+        bar.setStringPainted(true);
+        bar.setString("Working — please wait");
+        panel.add(progressText,BorderLayout.NORTH);
         panel.add(bar,BorderLayout.CENTER);
         loading.setContentPane(panel);loading.setSize(340,110);
         loading.setLocationRelativeTo(frame);
         loading.setDefaultCloseOperation(WindowConstants.DO_NOTHING_ON_CLOSE);
         loading.setVisible(true);
-        new SwingWorker<ManualCropPreparation,Void>() {
+        new SwingWorker<ManualCropPreparation,String>() {
             protected ManualCropPreparation doInBackground() throws Exception {
+                publish("Loading the image-processing engine...");
                 ensureOpenCvLoaded(new File("lib/opencv_java455.dll"));
                 File target=previewFiles.get(previewKey);
                 if(target==null || !target.isFile()) {
@@ -1132,6 +1133,7 @@ public final class FaceCropPro {
                 }
                 int turns=0;
                 if(!manualState.isFile()) {
+                    publish("Checking photo orientation (first-time analysis may take a little while)...");
                     Mat raw=Imgcodecs.imread(previewKey);
                     try {
                         if(!raw.empty()) {
@@ -1143,7 +1145,11 @@ public final class FaceCropPro {
                         }
                     } finally {raw.release();}
                 }
+                publish("Opening the manual crop editor...");
                 return new ManualCropPreparation(target,turns);
+            }
+            protected void process(java.util.List<String> messages) {
+                if(!messages.isEmpty()) progressText.setText(messages.get(messages.size()-1));
             }
             protected void done() {
                 loading.dispose();
