@@ -8,9 +8,10 @@ import java.util.regex.*;
 
 /** Optional update checks; cropping never depends on internet access. */
 public final class AppUpdates {
-    public static final String VERSION = "0.1.0";
+    public static final String VERSION = "0.4.4";
     private static final String API = "https://api.github.com/repos/mubumubashir925-star/Passport-size-Face-croper/releases/latest";
     private static final String RELEASES = "https://github.com/mubumubashir925-star/Passport-size-Face-croper/releases";
+    private static final String BUILD = "https://github.com/mubumubashir925-star/Passport-size-Face-croper/actions/workflows/windows-installer.yml";
     private AppUpdates() {}
 
     public static void check(Component parent) {
@@ -53,10 +54,13 @@ public final class AppUpdates {
                 try {
                     String[] data = get();
                     if ("NONE".equals(data[0])) {
-                        JOptionPane.showMessageDialog(parent,
-                            "No published GitHub Release yet.\nCurrent version: " + VERSION +
-                            "\nGitHub Actions build artifacts are not public app releases.",
-                            "Face Crop Pro Updates", JOptionPane.INFORMATION_MESSAGE);
+                        int answer = JOptionPane.showConfirmDialog(parent,
+                            "No published release is available yet.\\nCurrent version: " + VERSION +
+                            "\\n\\nOpen the official Windows installer build page?\\n" +
+                            "There you can start the new build and download its installer after the workflow succeeds.",
+                            "Face Crop Pro - New Version Build", JOptionPane.YES_NO_OPTION);
+                        if (answer == JOptionPane.YES_OPTION && Desktop.isDesktopSupported())
+                            Desktop.getDesktop().browse(new URI(BUILD));
                         return;
                     }
                     int compare = compareVersions(data[1], VERSION);
