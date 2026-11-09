@@ -177,13 +177,23 @@ public final class OutputPerspectiveEditor {
                             if(moving<0) return;
                             double nx=Math.max(0,Math.min(view[0].getWidth()-1,(e.getX()-ox)/scale));
                             double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
-                            if(perspective.isSelected()) {
+                            int opposite=(moving+2)%4;
+                            double fixedX=corners[opposite][0], fixedY=corners[opposite][1];
+                            if(perspective.isSelected() && !keepAspect.isSelected()) {
                                 corners[moving][0]=nx;corners[moving][1]=ny;
                             } else {
-                                int opposite=(moving+2)%4;
-                                double fixedX=corners[opposite][0], fixedY=corners[opposite][1];
-                                double left=Math.min(nx,fixedX),right=Math.max(nx,fixedX);
-                                double top=Math.min(ny,fixedY),bottom=Math.max(ny,fixedY);
+                                double ratio=(double)width/(double)height;
+                                double signX=nx>=fixedX?1.0:-1.0;
+                                double signY=ny>=fixedY?1.0:-1.0;
+                                double availableW=signX>0?view[0].getWidth()-1-fixedX:fixedX;
+                                double availableH=signY>0?view[0].getHeight()-1-fixedY:fixedY;
+                                double cropW=Math.min(Math.abs(nx-fixedX),Math.abs(ny-fixedY)*ratio);
+                                cropW=Math.min(cropW,Math.min(availableW,availableH*ratio));
+                                double cropH=cropW/ratio;
+                                double left=signX>0?fixedX:fixedX-cropW;
+                                double right=signX>0?fixedX+cropW:fixedX;
+                                double top=signY>0?fixedY:fixedY-cropH;
+                                double bottom=signY>0?fixedY+cropH:fixedY;
                                 corners[0][0]=left;corners[0][1]=top;
                                 corners[1][0]=right;corners[1][1]=top;
                                 corners[2][0]=right;corners[2][1]=bottom;
@@ -260,7 +270,7 @@ public final class OutputPerspectiveEditor {
             JPanel bottom=new JPanel(new BorderLayout());
             JPanel options=new JPanel(new FlowLayout(FlowLayout.LEFT));
             options.add(perspective);options.add(keepAspect);options.add(grid);options.add(fullGrid);
-            keepAspect.setToolTipText("Save the selected crop using the currently selected preset width-to-height ratio (R)");
+            keepAspect.setMnemonic('R');
             JLabel rotationHint = new JLabel("Rotate crop: drag just outside a corner");
             rotationHint.setToolTipText("Hover 13-42 pixels outside a corner until the hand cursor appears, then drag to rotate the crop box.");
             options.add(rotationHint);
@@ -287,7 +297,25 @@ public final class OutputPerspectiveEditor {
             rotateLeft.setToolTipText("Rotate left 90 degrees"); rotateRight.setToolTipText("Rotate right 90 degrees");
             options.add(rotateLeft); options.add(rotateRight);
             perspective.addActionListener(e -> PREFS.putBoolean("perspective",perspective.isSelected()));
-            keepAspect.addActionListener(e -> PREFS.putBoolean("keepAspectRatio",keepAspect.isSelected()));
+            keepAspect.setToolTipText("When checked, every crop handle keeps the preset ratio. Perspective corner freedom is available only when unchecked (R).");
+            perspective.setToolTipText("Free four-corner perspective mode works when Keep preset aspect ratio is unchecked.");
+            keepAspect.addActionListener(e -> {
+                PREFS.putBoolean("keepAspectRatio",keepAspect.isSelected());
+                if(keepAspect.isSelected()) {
+                    double cx=0,cy=0;
+                    for(int k=0;k<4;k++){cx+=corners[k][0];cy+=corners[k][1];}
+                    cx/=4.0;cy/=4.0;
+                    double boundW=Math.max(1,Math.max(corners[1][0],corners[2][0])-Math.min(corners[0][0],corners[3][0]));
+                    double boundH=Math.max(1,Math.max(corners[2][1],corners[3][1])-Math.min(corners[0][1],corners[1][1]));
+                    double ratio=(double)width/(double)height;
+                    double boxW=Math.min(boundW,boundH*ratio),boxH=boxW/ratio;
+                    double left=Math.max(0,Math.min(view[0].getWidth()-1-boxW,cx-boxW/2));
+                    double top=Math.max(0,Math.min(view[0].getHeight()-1-boxH,cy-boxH/2));
+                    corners[0]=new double[]{left,top};corners[1]=new double[]{left+boxW,top};
+                    corners[2]=new double[]{left+boxW,top+boxH};corners[3]=new double[]{left,top+boxH};
+                }
+                canvas.repaint();
+            });
             grid.addActionListener(e->{PREFS.putBoolean("grid",grid.isSelected());canvas.repaint();});
             fullGrid.addActionListener(e->{PREFS.putBoolean("fullGrid",fullGrid.isSelected());canvas.repaint();});
             bottom.add(options,BorderLayout.NORTH);
