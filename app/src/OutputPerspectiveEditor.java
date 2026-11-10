@@ -191,19 +191,31 @@ public final class OutputPerspectiveEditor {
                             double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
                             int opposite=(moving+2)%4;
                             double fixedX=corners[opposite][0], fixedY=corners[opposite][1];
-                            if(!keepAspect.isSelected()) {
-                                // Unchecked means genuinely free crop: every corner moves
-                                // independently, regardless of Perspective mode.
-                                corners[moving][0]=nx;corners[moving][1]=ny;
+                            if(perspective.isSelected()) {
+                                // Perspective is geometry: move only the selected corner.
+                                // Aspect-ratio lock affects the final output dimensions,
+                                // not the four independently adjustable perspective points.
+                                corners[moving][0]=nx;
+                                corners[moving][1]=ny;
                             } else {
-                                double ratio=(double)width/(double)height;
+                                // Normal crop always remains a true rectangle.
+                                // Keep Aspect checked locks its dimensions to the selected preset;
+                                // unchecked allows any rectangular width/height ratio.
                                 double signX=nx>=fixedX?1.0:-1.0;
                                 double signY=ny>=fixedY?1.0:-1.0;
+                                double cropW=Math.abs(nx-fixedX);
+                                double cropH=Math.abs(ny-fixedY);
+                                if(keepAspect.isSelected()) {
+                                    double ratio=(double)width/(double)height;
+                                    double fitW=Math.min(cropW,cropH*ratio);
+                                    cropW=fitW;
+                                    cropH=fitW/ratio;
+                                }
                                 double availableW=signX>0?view[0].getWidth()-1-fixedX:fixedX;
                                 double availableH=signY>0?view[0].getHeight()-1-fixedY:fixedY;
-                                double cropW=Math.min(Math.abs(nx-fixedX),Math.abs(ny-fixedY)*ratio);
-                                cropW=Math.min(cropW,Math.min(availableW,availableH*ratio));
-                                double cropH=cropW/ratio;
+                                double fit=Math.min(1.0,Math.min(availableW/Math.max(1,cropW),availableH/Math.max(1,cropH)));
+                                cropW=Math.max(1,cropW*fit);
+                                cropH=Math.max(1,cropH*fit);
                                 double left=signX>0?fixedX:fixedX-cropW;
                                 double right=signX>0?fixedX+cropW:fixedX;
                                 double top=signY>0?fixedY:fixedY-cropH;
@@ -311,8 +323,8 @@ public final class OutputPerspectiveEditor {
             rotateLeft.setToolTipText("Rotate left 90 degrees"); rotateRight.setToolTipText("Rotate right 90 degrees");
             options.add(rotateLeft); options.add(rotateRight);
             perspective.addActionListener(e -> PREFS.putBoolean("perspective",perspective.isSelected()));
-            keepAspect.setToolTipText("Checked: lock the preset ratio. Unchecked: free crop; corners can move independently.");
-            perspective.setToolTipText("Perspective mode is an optional guide; unchecking Keep preset aspect ratio always enables free corner movement.");
+            keepAspect.setToolTipText("Checked: normal rectangular crop keeps the selected preset ratio. Unchecked: any rectangular ratio is allowed.");
+            perspective.setToolTipText("Checked: move all four corners independently for perspective correction. Unchecked: crop remains a straight rectangle.");
             keepAspect.addActionListener(e -> {
                 PREFS.putBoolean("keepAspectRatio",keepAspect.isSelected());
                 if(keepAspect.isSelected()) {
