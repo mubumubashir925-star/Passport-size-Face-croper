@@ -179,7 +179,9 @@ public final class OutputPerspectiveEditor {
                             double ny=Math.max(0,Math.min(view[0].getHeight()-1,(e.getY()-oy)/scale));
                             int opposite=(moving+2)%4;
                             double fixedX=corners[opposite][0], fixedY=corners[opposite][1];
-                            if(perspective.isSelected() && !keepAspect.isSelected()) {
+                            if(!keepAspect.isSelected()) {
+                                // Unchecked means genuinely free crop: every corner moves
+                                // independently, regardless of Perspective mode.
                                 corners[moving][0]=nx;corners[moving][1]=ny;
                             } else {
                                 double ratio=(double)width/(double)height;
@@ -297,8 +299,8 @@ public final class OutputPerspectiveEditor {
             rotateLeft.setToolTipText("Rotate left 90 degrees"); rotateRight.setToolTipText("Rotate right 90 degrees");
             options.add(rotateLeft); options.add(rotateRight);
             perspective.addActionListener(e -> PREFS.putBoolean("perspective",perspective.isSelected()));
-            keepAspect.setToolTipText("When checked, every crop handle keeps the preset ratio. Perspective corner freedom is available only when unchecked (R).");
-            perspective.setToolTipText("Free four-corner perspective mode works when Keep preset aspect ratio is unchecked.");
+            keepAspect.setToolTipText("Checked: lock the preset ratio. Unchecked: free crop; corners can move independently.");
+            perspective.setToolTipText("Perspective mode is an optional guide; unchecking Keep preset aspect ratio always enables free corner movement.");
             keepAspect.addActionListener(e -> {
                 PREFS.putBoolean("keepAspectRatio",keepAspect.isSelected());
                 if(keepAspect.isSelected()) {
