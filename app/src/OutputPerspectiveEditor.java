@@ -27,6 +27,18 @@ public final class OutputPerspectiveEditor {
         loadingPanel.add(new JLabel("Loading photo for manual crop..."), BorderLayout.NORTH);
         JProgressBar progress = new JProgressBar();
         progress.setIndeterminate(true);
+        progress.setStringPainted(true);
+        progress.setString("Loading full-resolution photo…");
+        progress.setForeground(new Color(20, 150, 125));
+        progress.setBackground(new Color(226, 234, 240));
+        progress.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(190, 205, 215)),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+        progress.setPreferredSize(new java.awt.Dimension(290, 22));
+        progress.setUI(new javax.swing.plaf.basic.BasicProgressBarUI() {
+            protected Color getSelectionForeground() { return Color.WHITE; }
+            protected Color getSelectionBackground() { return Color.WHITE; }
+        });
         loadingPanel.add(progress, BorderLayout.CENTER);
         loading.setContentPane(loadingPanel);
         loading.setSize(330,105);
