@@ -1103,9 +1103,20 @@ public final class FaceCropPro {
         JPanel panel=new JPanel(new BorderLayout(12,12));
         panel.setBorder(BorderFactory.createEmptyBorder(18,22,18,22));
         JLabel progressText=new JLabel("Preparing photo for manual crop...");
-        JProgressBar bar=new JProgressBar();bar.setIndeterminate(true);
+        JProgressBar bar=new JProgressBar();
+        bar.setIndeterminate(true);
         bar.setStringPainted(true);
-        bar.setString("Working — please wait");
+        bar.setString("Preparing… please wait");
+        bar.setForeground(new Color(20, 150, 125));
+        bar.setBackground(new Color(226, 234, 240));
+        bar.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(190, 205, 215)),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)));
+        bar.setPreferredSize(new Dimension(290, 22));
+        bar.setUI(new javax.swing.plaf.basic.BasicProgressBarUI() {
+            protected Color getSelectionForeground() { return Color.WHITE; }
+            protected Color getSelectionBackground() { return Color.WHITE; }
+        });
         panel.add(progressText,BorderLayout.NORTH);
         panel.add(bar,BorderLayout.CENTER);
         loading.setContentPane(panel);loading.setSize(340,110);
@@ -1138,10 +1149,25 @@ public final class FaceCropPro {
                     try {
                         if(!raw.empty()) {
                             FaceCropEngine detector=new FaceCropEngine(new File("models/haarcascade_frontalface_alt2.xml"));
-                            int orientation=detector.detectBestRotation(raw);
-                            if(orientation==Core.ROTATE_90_CLOCKWISE) turns=1;
-                            else if(orientation==Core.ROTATE_180) turns=2;
-                            else if(orientation==Core.ROTATE_90_COUNTERCLOCKWISE) turns=3;
+                            // Orientation is a coarse decision. Analyse a small copy instead of
+                            // running four full-resolution Haar scans on the original photo.
+                            Mat analysis = new Mat();
+                            try {
+                                int longest = Math.max(raw.cols(), raw.rows());
+                                double scale = Math.min(1.0, 900.0 / Math.max(1, longest));
+                                if (scale < 1.0) {
+                                    Imgproc.resize(raw, analysis,
+                                        new org.opencv.core.Size(Math.max(1, Math.round(raw.cols()*scale)),
+                                            Math.max(1, Math.round(raw.rows()*scale))),
+                                        0, 0, Imgproc.INTER_AREA);
+                                } else {
+                                    raw.copyTo(analysis);
+                                }
+                                int orientation=detector.detectBestRotation(analysis);
+                                if(orientation==Core.ROTATE_90_CLOCKWISE) turns=1;
+                                else if(orientation==Core.ROTATE_180) turns=2;
+                                else if(orientation==Core.ROTATE_90_COUNTERCLOCKWISE) turns=3;
+                            } finally { analysis.release(); }
                         }
                     } finally {raw.release();}
                 }
